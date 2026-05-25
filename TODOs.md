@@ -44,7 +44,7 @@
   - [x] Ensure dimensions are positive integers.
   - [x] Validate scale_mode enum (fit, fill, stretch, crop).
   - [x] Validate background value (transparent or #RRGGBB).
-  - [ ] Validate render profile pipeline step schema (`tool`, `command`, optional `stage`).
+  - [x] Validate render profile pipeline step schema (`tool`, `command`, optional `stage`).
   - [ ] Validate output pipeline controls (`pipeline_append`/`pipeline_override`) and placeholder usage.
 - [x] Implement assets check command:
   - [x] Human-readable errors to stderr.
@@ -60,18 +60,18 @@
 
 ## Phase 4: Single Target Rendering (build-target)
 
-- [ ] Implement target lookup by exact output path.
+- [x] Implement target lookup by exact output path.
 - [ ] Implement image processing pipeline:
   - [ ] Load PNG/JPEG source images.
   - [ ] Rasterize SVG inputs.
   - [ ] Apply resize strategy for each scale_mode.
   - [ ] Apply optional background flattening.
   - [ ] Apply output format/compression settings.
-  - [ ] Support deterministic command chaining/postprocess steps (for example PNG optimization).
-  - [ ] Resolve effective ordered pipeline from profile + output controls.
-  - [ ] Execute resolved pipeline with placeholder expansion (`{input}`, `{tmp}`, `{tmp2}`, `{output}`, derived values).
-- [ ] Ensure target output directory exists before writing.
-- [ ] Implement assets build-target --target <path> command.
+  - [x] Support deterministic command chaining/postprocess steps (for example PNG optimization).
+  - [x] Resolve effective ordered pipeline from profile + output controls.
+  - [x] Execute resolved pipeline with placeholder expansion (`{input}`, `{tmp}`, `{tmp2}`, `{output}`, derived values).
+- [x] Ensure target output directory exists before writing.
+- [x] Implement assets build-target --target <path> command.
 
 ## Phase 5: Lockfile and Determinism
 

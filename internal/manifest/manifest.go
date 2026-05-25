@@ -22,7 +22,23 @@ type Manifest struct {
 }
 
 type Meta struct {
-	Project string `yaml:"project"`
+	Project string       `yaml:"project"`
+	Render  RenderConfig `yaml:"render"`
+}
+
+type RenderConfig struct {
+	Defaults RenderDefaults           `yaml:"defaults"`
+	Profiles map[string]RenderProfile `yaml:"profiles"`
+}
+
+type RenderDefaults struct {
+	Profile                string `yaml:"profile"`
+	StrictRendererVersions bool   `yaml:"strict_renderer_versions"`
+}
+
+type RenderProfile struct {
+	Pipeline      []PipelineStep         `yaml:"pipeline"`
+	FormatOptions map[string]interface{} `yaml:"format_options"`
 }
 
 type Asset struct {
@@ -42,13 +58,22 @@ type Output struct {
 }
 
 type Options struct {
-	ScaleMode     string                 `yaml:"scale_mode"`
-	Background    string                 `yaml:"background"`
-	FormatOptions map[string]interface{} `yaml:"format_options"`
+	ScaleMode        string                 `yaml:"scale_mode"`
+	Background       string                 `yaml:"background"`
+	Profile          string                 `yaml:"profile"`
+	PipelineAppend   []PipelineStep         `yaml:"pipeline_append"`
+	PipelineOverride []PipelineStep         `yaml:"pipeline_override"`
+	FormatOptions    map[string]interface{} `yaml:"format_options"`
+}
+
+type PipelineStep struct {
+	Stage   string `yaml:"stage"`
+	Tool    string `yaml:"tool"`
+	Command string `yaml:"command"`
 }
 
 type ValidationConfig struct {
-	Strict bool
+	Strict  bool
 	BaseDir string
 }
 
@@ -75,6 +100,11 @@ func (m *Manifest) Validate(cfg ValidationConfig) []error {
 
 	if strings.TrimSpace(m.Meta.Project) == "" {
 		errs = append(errs, fmt.Errorf("meta.project is required"))
+	}
+
+	renderErrs := validateRenderConfig(m.Meta.Render)
+	if len(renderErrs) > 0 {
+		errs = append(errs, renderErrs...)
 	}
 
 	if len(m.Assets) == 0 {
@@ -140,6 +170,19 @@ func (m *Manifest) Validate(cfg ValidationConfig) []error {
 			if !validBackground(out.Options.Background) {
 				errs = append(errs, fmt.Errorf("%s: options.background must be transparent or #RRGGBB", outputRef))
 			}
+
+			if profile := strings.TrimSpace(out.Options.Profile); profile != "" {
+				if _, ok := m.Meta.Render.Profiles[profile]; !ok {
+					errs = append(errs, fmt.Errorf("%s: options.profile %q does not exist in meta.render.profiles", outputRef, profile))
+				}
+			}
+
+			if len(out.Options.PipelineAppend) > 0 {
+				errs = append(errs, validatePipelineSteps(outputRef+" options.pipeline_append", out.Options.PipelineAppend)...)
+			}
+			if len(out.Options.PipelineOverride) > 0 {
+				errs = append(errs, validatePipelineSteps(outputRef+" options.pipeline_override", out.Options.PipelineOverride)...)
+			}
 		}
 	}
 
@@ -171,4 +214,48 @@ func validBackground(v string) bool {
 		return true
 	}
 	return hexColorRe.MatchString(v)
+}
+
+func validateRenderConfig(cfg RenderConfig) []error {
+	var errs []error
+
+	if len(cfg.Profiles) == 0 {
+		return errs
+	}
+
+	for name, profile := range cfg.Profiles {
+		if strings.TrimSpace(name) == "" {
+			errs = append(errs, fmt.Errorf("meta.render.profiles contains an empty profile name"))
+			continue
+		}
+		err := validatePipelineSteps(fmt.Sprintf("meta.render.profiles[%q].pipeline", name), profile.Pipeline)
+		errs = append(errs, err...)
+	}
+
+	if def := strings.TrimSpace(cfg.Defaults.Profile); def != "" {
+		if _, ok := cfg.Profiles[def]; !ok {
+			errs = append(errs, fmt.Errorf("meta.render.defaults.profile %q does not exist in meta.render.profiles", def))
+		}
+	}
+
+	return errs
+}
+
+func validatePipelineSteps(prefix string, steps []PipelineStep) []error {
+	var errs []error
+	if len(steps) == 0 {
+		errs = append(errs, fmt.Errorf("%s must contain at least one step", prefix))
+		return errs
+	}
+
+	for i, step := range steps {
+		if strings.TrimSpace(step.Tool) == "" {
+			errs = append(errs, fmt.Errorf("%s[%d]: tool is required", prefix, i))
+		}
+		if strings.TrimSpace(step.Command) == "" {
+			errs = append(errs, fmt.Errorf("%s[%d]: command is required", prefix, i))
+		}
+	}
+
+	return errs
 }

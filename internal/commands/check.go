@@ -31,7 +31,7 @@ func RunCheck(args []string, stderr io.Writer) int {
 	}
 
 	errs := m.Validate(manifest.ValidationConfig{
-		Strict: *strict,
+		Strict:  *strict,
 		BaseDir: filepath.Dir(*manifestPath),
 	})
 	if len(errs) == 0 {
