@@ -34,19 +34,19 @@
 
 ## Phase 2: Manifest and Validation (check)
 
-- [ ] Define manifest structs matching design schema (meta, assets, outputs, options, format_options).
-- [ ] Implement YAML parsing with strict unknown-field detection.
-- [ ] Implement semantic validation:
-  - [ ] Ensure meta.required_fields is present.
-  - [ ] Ensure each asset has required metadata fields populated.
-  - [ ] Ensure source paths exist.
-  - [ ] Ensure output paths are unique across all assets.
-  - [ ] Ensure dimensions are positive integers.
-  - [ ] Validate scale_mode enum (fit, fill, stretch, crop).
-  - [ ] Validate background value (transparent or #RRGGBB).
-- [ ] Implement assets check command:
-  - [ ] Human-readable errors to stderr.
-  - [ ] Exit 0 on success, 1 on failure.
+- [x] Define manifest structs matching design schema (meta, assets, outputs, options, format_options).
+- [x] Implement YAML parsing with strict unknown-field detection.
+- [x] Implement semantic validation:
+  - [x] Ensure strict mode requires legal metadata fields (owner, copyright, license).
+  - [x] Ensure loose mode allows missing legal metadata fields.
+  - [x] Ensure source paths exist.
+  - [x] Ensure output paths are unique across all assets.
+  - [x] Ensure dimensions are positive integers.
+  - [x] Validate scale_mode enum (fit, fill, stretch, crop).
+  - [x] Validate background value (transparent or #RRGGBB).
+- [x] Implement assets check command:
+  - [x] Human-readable errors to stderr.
+  - [x] Exit 0 on success, 1 on failure.
 
 ## Phase 3: Makefile Fragment Generation (gen)
 

@@ -1,6 +1,5 @@
 meta:
   project: "assets"
-  required_fields: ["license", "owner", "copyright"]
 
 assets:
   - id: "sample_logo"

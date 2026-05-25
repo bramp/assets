@@ -52,7 +52,6 @@ The source of truth for the asset ecosystem. Outputs support arbitrary rendering
 ```yaml
 meta:
   project: "Core App"
-  required_fields: ["license", "owner", "copyright"]
 
 assets:
   - id: "app_logo"
@@ -143,8 +142,9 @@ Performs quick, non-destructive semantic evaluation of the project posture.
 
 * **Actions:**
 1. Validates that `assets.yaml` matches the required structural schema.
-2. Ensures all required fields listed in `meta.required_fields` are populated for every asset block.
-3. Confirms that all declared `source` files exist on disk.
+2. In strict mode, ensures required legal metadata fields (`owner`, `copyright`, `license`) are populated for every asset block.
+3. In loose mode, allows missing legal metadata fields while still validating structure and source presence.
+4. Confirms that all declared `source` files exist on disk.
 
 
 * **Exit Codes:** `0` on compliance, `1` on failure (emits human-readable errors to `stderr`).
