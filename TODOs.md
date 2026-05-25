@@ -44,17 +44,19 @@
   - [x] Ensure dimensions are positive integers.
   - [x] Validate scale_mode enum (fit, fill, stretch, crop).
   - [x] Validate background value (transparent or #RRGGBB).
+  - [ ] Validate render profile pipeline step schema (`tool`, `command`, optional `stage`).
+  - [ ] Validate output pipeline controls (`pipeline_append`/`pipeline_override`) and placeholder usage.
 - [x] Implement assets check command:
   - [x] Human-readable errors to stderr.
   - [x] Exit 0 on success, 1 on failure.
 
 ## Phase 3: Makefile Fragment Generation (gen)
 
-- [ ] Implement assets gen:
-  - [ ] Emit deterministic GENERATED_ASSET_FILES := ... ordering.
-  - [ ] Emit explicit output-to-source dependency lines.
-  - [ ] Emit stable, reproducible output formatting.
-- [ ] Add tests that snapshot generated .assets.mk output.
+- [x] Implement assets gen:
+  - [x] Emit deterministic GENERATED_ASSET_FILES := ... ordering.
+  - [x] Emit explicit output-to-source dependency lines.
+  - [x] Emit stable, reproducible output formatting.
+- [x] Add tests that snapshot generated .assets.mk output.
 
 ## Phase 4: Single Target Rendering (build-target)
 
@@ -65,6 +67,9 @@
   - [ ] Apply resize strategy for each scale_mode.
   - [ ] Apply optional background flattening.
   - [ ] Apply output format/compression settings.
+  - [ ] Support deterministic command chaining/postprocess steps (for example PNG optimization).
+  - [ ] Resolve effective ordered pipeline from profile + output controls.
+  - [ ] Execute resolved pipeline with placeholder expansion (`{input}`, `{tmp}`, `{tmp2}`, `{output}`, derived values).
 - [ ] Ensure target output directory exists before writing.
 - [ ] Implement assets build-target --target <path> command.
 
@@ -73,15 +78,18 @@
 - [ ] Define lockfile structs with schema versioning.
 - [ ] Implement source SHA-256 hashing.
 - [ ] Implement config_hash from deterministic serialization of output dimensions + options.
+- [ ] Include resolved tool profile and command chain in config_hash inputs.
 - [ ] Update only the relevant target entry during build-target while preserving other entries.
 - [ ] Write lockfile in deterministic JSON (stable key ordering, stable formatting).
 - [ ] Record output size_bytes.
+- [ ] Record provenance per output (command chain, tool versions, host OS fingerprint, key library versions).
 
 ## Phase 6: Verification (verify-lock)
 
 - [ ] Implement assets verify-lock:
   - [ ] Compare source hashes against lockfile.
   - [ ] Compare computed config_hash against lockfile.
+  - [ ] Compare recorded provenance (commands, tool versions, host OS fingerprint, key library versions) against current execution environment/policy.
   - [ ] Verify each declared output exists and size matches lockfile when required.
   - [ ] Exit non-zero with actionable mismatch diagnostics.
 - [ ] Add CI job step to run assets verify-lock.

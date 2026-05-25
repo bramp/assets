@@ -52,6 +52,53 @@ The source of truth for the asset ecosystem. Outputs support arbitrary rendering
 ```yaml
 meta:
   project: "Core App"
+  render:
+    defaults:
+      profile: "balanced"
+      strict_renderer_versions: true
+    profiles:
+      balanced:
+        pipeline:
+          - stage: "rasterize"
+            tool: "resvg"
+            command: "resvg --dpi=96 {input} {tmp}"
+          - stage: "transform"
+            tool: "vips"
+            command: "vips resize {tmp} {tmp2} {scale}"
+          - stage: "encode"
+            tool: "vips"
+            command: "vips copy {tmp2} {output}"
+        format_options:
+          png_compression: 8
+          jpeg_quality: 88
+      quality:
+        pipeline:
+          - stage: "rasterize"
+            tool: "resvg"
+            command: "resvg --dpi=96 {input} {tmp}"
+          - stage: "transform"
+            tool: "vips"
+            command: "vips resize {tmp} {tmp2} {scale}"
+          - stage: "encode"
+            tool: "vips"
+            command: "vips copy {tmp2} {output}"
+        format_options:
+          png_compression: 9
+          jpeg_quality: 92
+      fast:
+        pipeline:
+          - stage: "rasterize"
+            tool: "librsvg"
+            command: "rsvg-convert -o {tmp} {input}"
+          - stage: "transform"
+            tool: "vips"
+            command: "vips resize {tmp} {tmp2} {scale}"
+          - stage: "encode"
+            tool: "vips"
+            command: "vips copy {tmp2} {output}"
+        format_options:
+          png_compression: 6
+          jpeg_quality: 82
 
 assets:
   - id: "app_logo"
@@ -66,6 +113,11 @@ assets:
         options:
           scale_mode: "fit"          # Options: fit, fill, stretch, crop
           background: "transparent"  # Options: transparent, hex code (#FFFFFF)
+          profile: "quality"         # Optional: override default render profile
+          pipeline_append:
+            - stage: "postprocess"
+              tool: "oxipng"
+              command: "oxipng -o 4 --strip safe {output}"
           format_options:
             png_compression: 9
       - path: "assets/images/logo_128_ie.png"
@@ -90,11 +142,43 @@ assets:
 
 ```
 
-### 3.2 The Lockfile (`assets.lock`)
+### 3.2 Rendering Tool Resolution
+
+The toolchain is policy-driven and resolved in this order:
+
+1. Output-level override (`options.profile` and output `format_options`).
+2. Output-level pipeline controls (`options.pipeline_override`, else `options.pipeline_append`).
+3. Manifest defaults (`meta.render.defaults` and selected profile `pipeline`).
+4. Built-in application defaults when values are omitted.
+
+The rendering pipeline is generic, ordered, and supports command chaining:
+
+1. Any number of steps may be declared in order.
+2. Each step is executed exactly as listed after placeholder expansion.
+3. Recommended (but not strictly required) stage kinds are `rasterize`, `transform`, `encode`, and `postprocess`.
+4. Typical SVG flow is `rasterize -> transform -> encode`, optionally followed by `postprocess`.
+5. Typical bitmap flow may start at `transform` then `encode`.
+
+Command-chain policy:
+
+1. Chains are declarative and ordered.
+2. Each step must declare `tool` and `command`; `stage` is recommended for validation/readability.
+3. Placeholders (for example `{input}`, `{tmp}`, `{output}`) are expanded by `assets`.
+4. Environment is constrained to deterministic defaults (for example locale, timezone, and fixed temp path conventions where practical).
+
+This means SVG->PNG and SVG->JPEG should normally share early pipeline steps (for example rasterize/transform), while encode options differ by output format.
+
+### 3.3 The Lockfile (`assets.lock`)
 
 The lockfile tracks the state of the repository's assets. It guarantees that the downstream binaries exactly match the source files and options defined in the manifest. It is written in deterministic JSON (keys sorted alphabetically).
 
-The `config_hash` is a SHA-256 hash calculated from the serialized string of the specific output's dimension and `options` block. This ensures that if a developer changes an option (e.g., from `background: "transparent"` to `background: "#FFFFFF"`) without changing the source image, the tool detects that the target needs to be rebuilt.
+The `config_hash` is a SHA-256 hash calculated from a deterministic serialization of the resolved output configuration, including dimensions, output options, selected render profile, full resolved command chain, and effective format settings. This ensures that if a developer changes an option (for example `background: "transparent"` to `background: "#FFFFFF"`), changes rendering tool policy, or changes command chaining behavior, the tool detects that the target needs to be rebuilt.
+
+The lockfile also records command provenance for each output, including:
+
+1. Executed command chain (normalized command strings after placeholder expansion strategy is fixed).
+2. Tool identities and versions.
+3. Runtime fingerprint details gathered before running commands (for example host OS and key linked library versions).
 
 ```json
 {
@@ -107,6 +191,21 @@ The `config_hash` is a SHA-256 hash calculated from the serialized string of the
       "outputs": {
         "assets/images/logo_128_ie.png": {
           "config_hash": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2",
+          "provenance": {
+            "command_chain": [
+              "resvg --dpi=96 {input} {tmp}",
+              "vips resize {tmp} {output} {scale}",
+              "oxipng -o 4 --strip safe {output}"
+            ],
+            "tools": {
+              "host_uname": "Linux buildbox 6.8.0-31-generic #31-Ubuntu SMP x86_64 GNU/Linux",
+              "resvg": "0.43.0",
+              "vips": "8.15.2",
+              "oxipng": "9.1.2",
+              "librsvg": "2.58.1",
+              "libvips": "8.15.2"
+            }
+          },
           "size_bytes": 14220
         },
         "assets/images/logo_512.png": {
@@ -166,9 +265,13 @@ Executes the discrete rendering transformation for a *single* target asset path.
 
 * **Actions:**
 1. Opens `assets.yaml` and locates the specific output block matching the `--target` path string.
-2. Parses the target's parameters (`width`, `height`, `options`).
-3. Executes the image mutation (resizing, scaling, padding, background flattening) using native library bindings or system tools.
-4. Updates the target asset path entry inside `assets.lock` with the fresh `source_sha256`, target `config_hash`, and final file size in bytes.
+2. Resolves the target's effective rendering configuration from output overrides, manifest defaults, and built-in defaults.
+3. Parses the target's parameters (`width`, `height`, `options`) plus selected render profile/tool settings.
+4. Executes the resolved pipeline steps in order:
+  - Expand placeholders using the target context (`{input}`, `{tmp}`, `{tmp2}`, `{output}`, and derived values).
+  - Run each step command with deterministic execution settings.
+  - Ensure the pipeline writes the requested output path.
+5. Updates the target asset path entry inside `assets.lock` with the fresh `source_sha256`, target `config_hash`, and final file size in bytes.
 
 
 
