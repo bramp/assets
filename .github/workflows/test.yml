@@ -8,6 +8,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout
@@ -28,5 +31,26 @@ jobs:
       - name: Add Go bin to PATH
         run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
+      - name: Analyze (CI)
+        run: make analyze
+
       - name: Test (CI)
         run: make test-ci
+
+      - name: Verify lockfile (CI)
+        run: |
+          if [ -f assets.yaml ] && [ -f assets.lock ]; then
+            assets verify-lock
+          else
+            echo "Skipping verify-lock: assets.yaml or assets.lock not present"
+          fi
+
+      - name: Coverage (CI)
+        run: go test ./... -coverprofile=coverage.out -covermode=atomic
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          files: coverage.out
+          fail_ci_if_error: true
+          use_oidc: true

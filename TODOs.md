@@ -91,7 +91,7 @@
   - [x] Compare recorded provenance (commands, tool versions, host OS fingerprint, key library versions) against current execution environment/policy.
   - [x] Verify each declared output exists and size matches lockfile when required.
   - [x] Exit non-zero with actionable mismatch diagnostics.
-- [ ] Add CI job step to run assets verify-lock.
+- [x] Add CI job step to run assets verify-lock.
 
 ## Phase 7: Testing and Quality Gates
 
@@ -110,17 +110,18 @@
   - [x] go vet ./...
   - [x] staticcheck ./...
   - [x] go test ./...
-  - [ ] Maintain high coverage targets (>=85% repo, >=90% core packages).
-  - [ ] Treat lint warnings as CI failures.
+  - [ ] Maintain high coverage targets (>=85% repo, >=90% core packages). (Current: ~82.9%)
+  - [x] Treat lint warnings as CI failures.
 
 ## Phase 8: Developer Experience and Docs
 
-- [ ] Add README with quickstart:
-  - [ ] Example assets.yaml.
-  - [ ] Example root Makefile wiring.
-  - [ ] Command reference (check, gen, build-target, verify-lock).
-- [ ] Document failure modes and recovery flow (run make locally, commit updated assets + lockfile).
-- [ ] Add release checklist for new image-option semantics.
+- [x] Add README with quickstart:
+  - [x] Example assets.yaml.
+  - [x] Example root Makefile wiring.
+  - [x] Command reference (check, gen, build-target, verify-lock).
+- [x] Document failure modes and recovery flow (run make locally, commit updated assets + lockfile).
+- [x] Add release checklist for new image-option semantics.
+- [x] Add CI coverage upload and trend tracking with Codecov (OIDC).
 
 ## Phase 9: Optional Hardening
 
