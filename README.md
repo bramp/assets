@@ -25,6 +25,22 @@ It is especially useful as a cheap CI gate to confirm generated assets are curre
 
 ## Quickstart
 
+### 0) Install or run the CLI
+
+Option A (preferred): install `assets` into your Go bin path.
+
+```bash
+go install github.com/bramp/assets/cmd/assets@latest
+assets --help
+```
+
+Option B: run without installing.
+
+```bash
+alias assets='go run github.com/bramp/assets/cmd/assets@latest --'
+assets --help
+```
+
 ### 1) Create assets.yaml
 
 Start with the smallest manifest and rely on sane built-in defaults.
