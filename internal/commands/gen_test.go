@@ -51,3 +51,19 @@ func TestRunGen_LoadError(t *testing.T) {
 		t.Fatal("expected stderr output")
 	}
 }
+
+func TestRunGen_ArgErrors(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if exit := RunGen([]string{"--unknown"}, &stdout, &stderr); exit != 1 {
+		t.Fatalf("expected parse error, got %d", exit)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if exit := RunGen([]string{"extra"}, &stdout, &stderr); exit != 1 {
+		t.Fatalf("expected positional argument error, got %d", exit)
+	}
+}

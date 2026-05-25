@@ -51,3 +51,11 @@ func TestConfigSHA256_DeterministicMapOrder(t *testing.T) {
 		t.Fatalf("expected deterministic hash for equivalent maps: %s vs %s", ha, hb)
 	}
 }
+
+func TestConfigSHA256_MarshalError(t *testing.T) {
+	t.Parallel()
+
+	if _, err := ConfigSHA256(map[string]any{"fn": func() {}}); err == nil {
+		t.Fatal("expected marshal error")
+	}
+}

@@ -130,6 +130,47 @@ func TestValidate_RenderPipelineAndOutputControls(t *testing.T) {
 	}
 }
 
+func TestHelpers(t *testing.T) {
+	t.Parallel()
+
+	if got := assetRef(Asset{ID: "x"}, 0); got != `asset["x"]` {
+		t.Fatalf("unexpected assetRef with id: %q", got)
+	}
+	if got := assetRef(Asset{}, 7); got != "asset[7]" {
+		t.Fatalf("unexpected assetRef without id: %q", got)
+	}
+
+	for _, tc := range []struct {
+		v    string
+		want bool
+	}{
+		{v: "fit", want: true},
+		{v: "fill", want: true},
+		{v: "stretch", want: true},
+		{v: "crop", want: true},
+		{v: "bogus", want: false},
+	} {
+		if got := validScaleMode(tc.v); got != tc.want {
+			t.Fatalf("validScaleMode(%q)=%v want %v", tc.v, got, tc.want)
+		}
+	}
+
+	for _, tc := range []struct {
+		v    string
+		want bool
+	}{
+		{v: "transparent", want: true},
+		{v: "#A1B2C3", want: true},
+		{v: "#abc123", want: true},
+		{v: "#xyzxyz", want: false},
+		{v: "white", want: false},
+	} {
+		if got := validBackground(tc.v); got != tc.want {
+			t.Fatalf("validBackground(%q)=%v want %v", tc.v, got, tc.want)
+		}
+	}
+}
+
 func joinErrs(errs []error) string {
 	parts := make([]string, 0, len(errs))
 	for _, err := range errs {

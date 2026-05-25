@@ -50,16 +50,19 @@ func CollectProvenance(steps []manifest.PipelineStep) *lockfile.Provenance {
 }
 
 func commandVersion(cmdName string) string {
-	out, err := exec.Command(cmdName, "--version").CombinedOutput()
-	if err != nil {
-		return ""
+	for _, args := range [][]string{{"--version"}, {"version"}} {
+		out, err := exec.Command(cmdName, args...).CombinedOutput()
+		if err != nil {
+			continue
+		}
+		line := strings.TrimSpace(string(out))
+		if line == "" {
+			continue
+		}
+		if idx := strings.IndexByte(line, '\n'); idx >= 0 {
+			line = line[:idx]
+		}
+		return line
 	}
-	line := strings.TrimSpace(string(out))
-	if line == "" {
-		return ""
-	}
-	if idx := strings.IndexByte(line, '\n'); idx >= 0 {
-		line = line[:idx]
-	}
-	return line
+	return ""
 }

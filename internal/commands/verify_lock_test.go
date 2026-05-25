@@ -101,6 +101,108 @@ func TestEndToEnd_CheckGenBuildVerify(t *testing.T) {
 	}
 }
 
+func TestRunVerifyLock_PositionalArgsFail(t *testing.T) {
+	t.Parallel()
+
+	var stderr bytes.Buffer
+	if exit := RunVerifyLock([]string{"extra"}, &stderr); exit != 1 {
+		t.Fatalf("expected positional-arg failure, got %d", exit)
+	}
+}
+
+func TestRunVerifyLock_MissingOutputOnDisk(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	manifestPath := writePipelineFixture(t, dir)
+
+	var stderr bytes.Buffer
+	if exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr); exit != 0 {
+		t.Fatalf("build-target failed: %s", stderr.String())
+	}
+
+	if err := os.Remove(filepath.Join(dir, "out", "out.txt")); err != nil {
+		t.Fatalf("remove output: %v", err)
+	}
+
+	stderr.Reset()
+	if exit := RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 1 {
+		t.Fatalf("expected verify-lock failure, got %d", exit)
+	}
+	if !strings.Contains(stderr.String(), "missing on disk") {
+		t.Fatalf("expected missing-on-disk error, got: %s", stderr.String())
+	}
+}
+
+func TestRunVerifyLock_ProvenanceMismatch(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	manifestPath := writePipelineFixture(t, dir)
+
+	var stderr bytes.Buffer
+	if exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr); exit != 0 {
+		t.Fatalf("build-target failed: %s", stderr.String())
+	}
+
+	lockPath := filepath.Join(dir, "assets.lock")
+	b, err := os.ReadFile(lockPath)
+	if err != nil {
+		t.Fatalf("read lockfile: %v", err)
+	}
+	// mutate provenance command chain so verify-lock detects mismatch
+	mutated := strings.Replace(string(b), "cp {input} {output}", "cp {input} {output} #changed", 1)
+	if err := os.WriteFile(lockPath, []byte(mutated), 0o644); err != nil {
+		t.Fatalf("write lockfile: %v", err)
+	}
+
+	stderr.Reset()
+	if exit := RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 1 {
+		t.Fatalf("expected verify-lock failure, got %d", exit)
+	}
+	if !strings.Contains(stderr.String(), "provenance mismatch") {
+		t.Fatalf("expected provenance mismatch error, got: %s", stderr.String())
+	}
+}
+
+func TestRunVerifyLock_OtherFailures(t *testing.T) {
+	t.Parallel()
+
+	t.Run("manifest load failure", func(t *testing.T) {
+		var stderr bytes.Buffer
+		if exit := RunVerifyLock([]string{"--manifest", "missing.yaml"}, &stderr); exit != 1 {
+			t.Fatalf("expected load failure, got %d", exit)
+		}
+	})
+
+	t.Run("lockfile load failure", func(t *testing.T) {
+		dir := t.TempDir()
+		manifestPath := writePipelineFixture(t, dir)
+
+		var stderr bytes.Buffer
+		if exit := RunVerifyLock([]string{"--manifest", manifestPath, "--lock", "."}, &stderr); exit != 1 {
+			t.Fatalf("expected lockfile load failure, got %d", exit)
+		}
+	})
+
+	t.Run("asset missing from lockfile", func(t *testing.T) {
+		dir := t.TempDir()
+		manifestPath := writePipelineFixture(t, dir)
+
+		if err := os.WriteFile(filepath.Join(dir, "assets.lock"), []byte("{}\n"), 0o644); err != nil {
+			t.Fatalf("write lockfile: %v", err)
+		}
+
+		var stderr bytes.Buffer
+		if exit := RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 1 {
+			t.Fatalf("expected missing-asset failure, got %d", exit)
+		}
+		if !strings.Contains(stderr.String(), "missing from lockfile") {
+			t.Fatalf("expected missing asset message, got: %s", stderr.String())
+		}
+	})
+}
+
 func writePipelineFixture(t *testing.T, dir string) string {
 	t.Helper()
 	src := filepath.Join(dir, "raw", "in.txt")

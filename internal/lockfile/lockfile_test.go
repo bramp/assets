@@ -68,3 +68,31 @@ func TestUpsertSaveLoad_RoundTrip(t *testing.T) {
 		t.Fatal("expected newline-terminated lockfile")
 	}
 }
+
+func TestLoad_InvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "assets.lock")
+	if err := os.WriteFile(path, []byte("{"), 0o644); err != nil {
+		t.Fatalf("write bad lockfile: %v", err)
+	}
+
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected invalid JSON error")
+	}
+}
+
+func TestSave_ErrorWhenParentIsFile(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	parent := filepath.Join(dir, "not-a-dir")
+	if err := os.WriteFile(parent, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write parent file: %v", err)
+	}
+
+	f := New()
+	if err := f.Save(filepath.Join(parent, "assets.lock")); err == nil {
+		t.Fatal("expected save error when parent path is not a directory")
+	}
+}
