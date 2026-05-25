@@ -1,12 +1,12 @@
-# System Design Document: Declarative Asset Pipeline & Registry (`asset-mgr`)
+# System Design Document: Declarative Asset Pipeline & Registry (`assets`)
 
-This document provides a comprehensive blueprint for building a lightweight, metadata-driven asset pipeline tool named `asset-mgr`. It handles asset validation, legal/compliance tracking, and on-demand image processing by interfacing natively with `Make`.
+This document provides a comprehensive blueprint for building a lightweight, metadata-driven asset pipeline tool named `assets`. It handles asset validation, legal/compliance tracking, and on-demand image processing by interfacing natively with `Make`.
 
 ---
 
 ## 1. Executive Summary & Design Philosophy
 
-`asset-mgr` is a command-line tool written in **Go**. It treats assets as code by coupling an asset's legal metadata (ownership, copyright, license) directly with its build instructions.
+`assets` is a command-line tool written in **Go**. It treats assets as code by coupling an asset's legal metadata (ownership, copyright, license) directly with its build instructions.
 
 ### Core Tenets:
 
@@ -26,7 +26,7 @@ This document provides a comprehensive blueprint for building a lightweight, met
                             ▼
  ┌──────────────────────────┴──────────────────────────┐
  │                      Go Tool                        │
- │                    (asset-mgr)                      │
+ │                    (assets)                      │
  └──────┬───────────────────┬───────────────────┬──────┘
         │                   │                   │
         ▼ [gen]             ▼ [check]           ▼ [build-target]
@@ -135,9 +135,9 @@ The `config_hash` is a SHA-256 hash calculated from the serialized string of the
 
 ## 4. Command-Line Interface (CLI) Specification
 
-The Go application executable `asset-mgr` must implement the following structural interface:
+The Go application executable `assets` must implement the following structural interface:
 
-### 4.1 `asset-mgr check`
+### 4.1 `assets check`
 
 Performs quick, non-destructive semantic evaluation of the project posture.
 
@@ -149,7 +149,7 @@ Performs quick, non-destructive semantic evaluation of the project posture.
 
 * **Exit Codes:** `0` on compliance, `1` on failure (emits human-readable errors to `stderr`).
 
-### 4.2 `asset-mgr gen`
+### 4.2 `assets gen`
 
 Generates the Makefile dependency fragments based on the asset manifest definitions.
 
@@ -160,7 +160,7 @@ Generates the Makefile dependency fragments based on the asset manifest definiti
 
 
 
-### 4.3 `asset-mgr build-target --target <path>`
+### 4.3 `assets build-target --target <path>`
 
 Executes the discrete rendering transformation for a *single* target asset path.
 
@@ -190,16 +190,16 @@ all: $(GENERATED_ASSET_FILES)
 	@echo "✓ System synchronization successful."
 
 # Dynamic rule engine updates. If assets.yaml is altered, Make calls 
-# asset-mgr to refresh .assets.mk, then hot-reloads its execution loop.
+# assets to refresh .assets.mk, then hot-reloads its execution loop.
 .assets.mk: assets.yaml
-	@asset-mgr gen > .assets.mk
+	@assets gen > .assets.mk
 
 # Rule mapping how any generic asset target in the generated manifest is processed
 $(GENERATED_ASSET_FILES):
-	@asset-mgr build-target --target $@
+	@assets build-target --target $@
 
 check-assets:
-	@asset-mgr check
+	@assets check
 	@echo "✓ All legal metadata and manifest constraints conform to standard compliance thresholds."
 
 clean:
@@ -217,7 +217,7 @@ To assert asset verification states inside CI/CD tools (e.g., GitHub Actions) wi
 2. **Freshness State Check:** Run a custom Go validation step (or light shell wrapper) that mimics Make's `-q` capability against the lockfile:
 ```bash
 # CI verification command executed by the runner
-asset-mgr verify-lock
+assets verify-lock
 
 ```
 
