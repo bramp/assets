@@ -4,8 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 
+	"github.com/bramp/assets/internal/hash"
+	"github.com/bramp/assets/internal/lockfile"
 	"github.com/bramp/assets/internal/manifest"
 	"github.com/bramp/assets/internal/render"
 )
@@ -16,6 +19,7 @@ func RunBuildTarget(args []string, stderr io.Writer) int {
 
 	manifestPath := fs.String("manifest", "assets.yaml", "Path to assets manifest")
 	target := fs.String("target", "", "Target output path to build")
+	lockPath := fs.String("lock", "assets.lock", "Path to lockfile")
 
 	if err := fs.Parse(args); err != nil {
 		return 1
@@ -59,6 +63,31 @@ func RunBuildTarget(args []string, stderr io.Writer) int {
 
 	if err := render.ExecutePipeline(steps, ctx); err != nil {
 		_, _ = fmt.Fprintf(stderr, "build-target: %v\n", err)
+		return 1
+	}
+
+	st, err := os.Stat(ctx.OutputPath)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "build-target: failed to stat output: %v\n", err)
+		return 1
+	}
+
+	sourceHash, err := hash.FileSHA256(ctx.InputPath)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "build-target: failed to hash source: %v\n", err)
+		return 1
+	}
+
+	lf, err := lockfile.Load(filepath.Join(baseDir, *lockPath))
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "build-target: failed to load lockfile: %v\n", err)
+		return 1
+	}
+
+	provenance := render.CollectProvenance(steps)
+	lf.UpsertOutput(spec.Asset.ID, spec.Asset.Source, sourceHash, spec.Output.Path, st.Size(), provenance)
+	if err := lf.Save(filepath.Join(baseDir, *lockPath)); err != nil {
+		_, _ = fmt.Fprintf(stderr, "build-target: failed to save lockfile: %v\n", err)
 		return 1
 	}
 

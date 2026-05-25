@@ -172,7 +172,7 @@ This means SVG->PNG and SVG->JPEG should normally share early pipeline steps (fo
 
 The lockfile tracks the state of the repository's assets. It guarantees that the downstream binaries exactly match the source files and options defined in the manifest. It is written in deterministic JSON (keys sorted alphabetically).
 
-The `config_hash` is a SHA-256 hash calculated from a deterministic serialization of the resolved output configuration, including dimensions, output options, selected render profile, full resolved command chain, and effective format settings. This ensures that if a developer changes an option (for example `background: "transparent"` to `background: "#FFFFFF"`), changes rendering tool policy, or changes command chaining behavior, the tool detects that the target needs to be rebuilt.
+The lockfile intentionally does not store a single `config_hash`. Instead, freshness and reproducibility rely on source file hashes, output file size/existence checks, and recorded command provenance (command chain, tool versions, and host/runtime fingerprint).
 
 The lockfile also records command provenance for each output, including:
 
@@ -190,7 +190,6 @@ The lockfile also records command provenance for each output, including:
       "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "outputs": {
         "assets/images/logo_128_ie.png": {
-          "config_hash": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2",
           "provenance": {
             "command_chain": [
               "resvg --dpi=96 {input} {tmp}",
@@ -209,7 +208,6 @@ The lockfile also records command provenance for each output, including:
           "size_bytes": 14220
         },
         "assets/images/logo_512.png": {
-          "config_hash": "8f439281a9c34e2b10f8482d38e9102c348a912e384b102c48e9102c3481a293",
           "size_bytes": 52104
         }
       }
@@ -219,7 +217,6 @@ The lockfile also records command provenance for each output, including:
       "source_sha256": "4a5e6f7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f",
       "outputs": {
         "assets/icons/search_24.png": {
-          "config_hash": "7d3a1b4e5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f",
           "size_bytes": 3108
         }
       }
@@ -271,7 +268,7 @@ Executes the discrete rendering transformation for a *single* target asset path.
   - Expand placeholders using the target context (`{input}`, `{tmp}`, `{tmp2}`, `{output}`, and derived values).
   - Run each step command with deterministic execution settings.
   - Ensure the pipeline writes the requested output path.
-5. Updates the target asset path entry inside `assets.lock` with the fresh `source_sha256`, target `config_hash`, and final file size in bytes.
+5. Updates the target asset path entry inside `assets.lock` with the fresh `source_sha256`, recorded provenance, and final file size in bytes.
 
 
 

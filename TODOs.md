@@ -75,23 +75,22 @@
 
 ## Phase 5: Lockfile and Determinism
 
-- [ ] Define lockfile structs with schema versioning.
-- [ ] Implement source SHA-256 hashing.
-- [ ] Implement config_hash from deterministic serialization of output dimensions + options.
-- [ ] Include resolved tool profile and command chain in config_hash inputs.
-- [ ] Update only the relevant target entry during build-target while preserving other entries.
-- [ ] Write lockfile in deterministic JSON (stable key ordering, stable formatting).
-- [ ] Record output size_bytes.
-- [ ] Record provenance per output (command chain, tool versions, host OS fingerprint, key library versions).
+- [x] Define lockfile structs with schema versioning.
+- [x] Implement source SHA-256 hashing.
+- [x] Prefer source hash + provenance checks over storing config_hash in lockfile.
+- [x] Update only the relevant target entry during build-target while preserving other entries.
+- [x] Write lockfile in deterministic JSON (stable key ordering, stable formatting).
+- [x] Record output size_bytes.
+- [x] Record provenance per output (command chain, tool versions, host OS fingerprint, key library versions).
 
 ## Phase 6: Verification (verify-lock)
 
 - [ ] Implement assets verify-lock:
-  - [ ] Compare source hashes against lockfile.
-  - [ ] Compare computed config_hash against lockfile.
-  - [ ] Compare recorded provenance (commands, tool versions, host OS fingerprint, key library versions) against current execution environment/policy.
-  - [ ] Verify each declared output exists and size matches lockfile when required.
-  - [ ] Exit non-zero with actionable mismatch diagnostics.
+  - [x] Compare source hashes against lockfile.
+  - [x] Compare recorded source hash and provenance against lockfile.
+  - [x] Compare recorded provenance (commands, tool versions, host OS fingerprint, key library versions) against current execution environment/policy.
+  - [x] Verify each declared output exists and size matches lockfile when required.
+  - [x] Exit non-zero with actionable mismatch diagnostics.
 - [ ] Add CI job step to run assets verify-lock.
 
 ## Phase 7: Testing and Quality Gates
