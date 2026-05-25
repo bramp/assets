@@ -40,9 +40,9 @@ jobs:
       - name: Verify lockfile (CI)
         run: |
           if [ -f assets.yaml ] && [ -f assets.lock ]; then
-            assets verify-lock
+            assets verify
           else
-            echo "Skipping verify-lock: assets.yaml or assets.lock not present"
+            echo "Skipping verify: assets.yaml or assets.lock not present"
           fi
 
       - name: Coverage (CI)

@@ -20,9 +20,9 @@ func main() {
 		exitCode = commands.RunCheck(os.Args[2:], os.Stderr)
 	case "gen":
 		exitCode = commands.RunGen(os.Args[2:], os.Stdout, os.Stderr)
-	case "build-target":
+	case "build":
 		exitCode = commands.RunBuildTarget(os.Args[2:], os.Stderr)
-	case "verify-lock":
+	case "verify":
 		exitCode = commands.RunVerifyLock(os.Args[2:], os.Stderr)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n", os.Args[1])
@@ -39,8 +39,8 @@ func printUsage(stderr io.Writer) {
 	_, _ = fmt.Fprintln(stderr, "Commands:")
 	_, _ = fmt.Fprintln(stderr, "  check       Validate assets manifest and source file presence")
 	_, _ = fmt.Fprintln(stderr, "  gen         Generate deterministic Makefile fragment")
-	_, _ = fmt.Fprintln(stderr, "  build-target Build a single target output")
-	_, _ = fmt.Fprintln(stderr, "  verify-lock Verify manifest, outputs, and lockfile alignment")
+	_, _ = fmt.Fprintln(stderr, "  build       Build a single target output")
+	_, _ = fmt.Fprintln(stderr, "  verify      Verify manifest, outputs, and lockfile alignment")
 	_, _ = fmt.Fprintln(stderr, "")
 	_, _ = fmt.Fprintln(stderr, "Use 'assets <command> -h' for command help.")
 }

@@ -29,7 +29,7 @@ This document provides a comprehensive blueprint for building a lightweight, met
  │                    (assets)                      │
  └──────┬───────────────────┬───────────────────┬──────┘
         │                   │                   │
-        ▼ [gen]             ▼ [check]           ▼ [build-target]
+        ▼ [gen]             ▼ [check]           ▼ [build]
  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
  │  .assets.mk  │    │ Compliance   │    │ Invoked by   │
  └──────┬───────┘    │  Validation  │    │ Make on      │
@@ -256,7 +256,7 @@ Generates the Makefile dependency fragments based on the asset manifest definiti
 
 
 
-### 4.3 `assets build-target --target <path>`
+### 4.3 `assets build --target <path>`
 
 Executes the discrete rendering transformation for a *single* target asset path.
 
@@ -296,7 +296,7 @@ all: $(GENERATED_ASSET_FILES)
 
 # Rule mapping how any generic asset target in the generated manifest is processed
 $(GENERATED_ASSET_FILES):
-	@assets build-target --target $@
+  @assets build --target $@
 
 check-assets:
 	@assets check
@@ -317,9 +317,9 @@ To assert asset verification states inside CI/CD tools (e.g., GitHub Actions) wi
 2. **Freshness State Check:** Run a custom Go validation step (or light shell wrapper) that mimics Make's `-q` capability against the lockfile:
 ```bash
 # CI verification command executed by the runner
-assets verify-lock
+assets verify
 
 ```
 
 
-The `verify-lock` command maps live filesystem content hashes of sources against `assets.lock`. If any live source hash or configuration definition diverges from the value preserved inside `assets.lock`, it errors out, letting the developer know they must run `make` locally to update their downstream assets before pushing.
+The `verify` command maps live filesystem content hashes of sources against `assets.lock`. If any live source hash or configuration definition diverges from the value preserved inside `assets.lock`, it errors out, letting the developer know they must run `make` locally to update their downstream assets before pushing.

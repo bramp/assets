@@ -1,1 +1,1 @@
-verify-lock: asset "a" source hash mismatch
+verify: asset "a" source hash mismatch

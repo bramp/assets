@@ -16,7 +16,7 @@ import (
 )
 
 func RunVerifyLock(args []string, stderr io.Writer) int {
-	fs := flag.NewFlagSet("verify-lock", flag.ContinueOnError)
+	fs := flag.NewFlagSet("verify", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
 	manifestPath := fs.String("manifest", "assets.yaml", "Path to assets manifest")
@@ -26,20 +26,20 @@ func RunVerifyLock(args []string, stderr io.Writer) int {
 		return 1
 	}
 	if fs.NArg() != 0 {
-		_, _ = fmt.Fprintf(stderr, "verify-lock: unexpected positional arguments: %v\n", fs.Args())
+		_, _ = fmt.Fprintf(stderr, "verify: unexpected positional arguments: %v\n", fs.Args())
 		return 1
 	}
 
 	m, err := manifest.LoadFile(*manifestPath)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "verify-lock: failed to load manifest %q: %v\n", *manifestPath, err)
+		_, _ = fmt.Fprintf(stderr, "verify: failed to load manifest %q: %v\n", *manifestPath, err)
 		return 1
 	}
 
 	baseDir := filepath.Dir(*manifestPath)
 	lf, err := lockfile.Load(filepath.Join(baseDir, *lockPath))
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "verify-lock: failed to load lockfile %q: %v\n", *lockPath, err)
+		_, _ = fmt.Fprintf(stderr, "verify: failed to load lockfile %q: %v\n", *lockPath, err)
 		return 1
 	}
 
@@ -96,7 +96,7 @@ func RunVerifyLock(args []string, stderr io.Writer) int {
 	}
 	sort.Strings(errs)
 	for _, msg := range errs {
-		_, _ = fmt.Fprintf(stderr, "verify-lock: %s\n", msg)
+		_, _ = fmt.Fprintf(stderr, "verify: %s\n", msg)
 	}
 	return 1
 }

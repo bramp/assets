@@ -58,7 +58,7 @@
   - [x] Emit stable, reproducible output formatting.
 - [x] Add tests that snapshot generated .assets.mk output.
 
-## Phase 4: Single Target Rendering (build-target)
+## Phase 4: Single Target Rendering (build)
 
 - [x] Implement target lookup by exact output path.
 - [ ] Implement image processing pipeline:
@@ -71,27 +71,27 @@
   - [x] Resolve effective ordered pipeline from profile + output controls.
   - [x] Execute resolved pipeline with placeholder expansion (`{input}`, `{tmp}`, `{tmp2}`, `{output}`, derived values).
 - [x] Ensure target output directory exists before writing.
-- [x] Implement assets build-target --target <path> command.
+- [x] Implement assets build --target <path> command.
 
 ## Phase 5: Lockfile and Determinism
 
 - [x] Define lockfile structs with schema versioning.
 - [x] Implement source SHA-256 hashing.
 - [x] Prefer source hash + provenance checks over storing config_hash in lockfile.
-- [x] Update only the relevant target entry during build-target while preserving other entries.
+- [x] Update only the relevant target entry during build while preserving other entries.
 - [x] Write lockfile in deterministic JSON (stable key ordering, stable formatting).
 - [x] Record output size_bytes.
 - [x] Record provenance per output (command chain, tool versions, host OS fingerprint, key library versions).
 
-## Phase 6: Verification (verify-lock)
+## Phase 6: Verification (verify)
 
-- [x] Implement assets verify-lock:
+- [x] Implement assets verify:
   - [x] Compare source hashes against lockfile.
   - [x] Compare recorded source hash and provenance against lockfile.
   - [x] Compare recorded provenance (commands, tool versions, host OS fingerprint, key library versions) against current execution environment/policy.
   - [x] Verify each declared output exists and size matches lockfile when required.
   - [x] Exit non-zero with actionable mismatch diagnostics.
-- [x] Add CI job step to run assets verify-lock.
+- [x] Add CI job step to run assets verify.
 
 ## Phase 7: Testing and Quality Gates
 
@@ -101,9 +101,9 @@
   - [x] Lockfile read/merge/write behavior.
 - [x] Golden tests:
   - [x] gen output.
-  - [x] verify-lock mismatch messages.
+  - [x] verify mismatch messages.
 - [x] Integration tests:
-  - [x] End-to-end check -> gen -> build-target -> verify-lock.
+  - [x] End-to-end check -> gen -> build -> verify.
 - [ ] Run and keep clean:
   - [x] go fmt ./...
   - [x] goimports -w .
@@ -118,7 +118,7 @@
 - [x] Add README with quickstart:
   - [x] Example assets.yaml.
   - [x] Example root Makefile wiring.
-  - [x] Command reference (check, gen, build-target, verify-lock).
+  - [x] Command reference (check, gen, build, verify).
 - [x] Document failure modes and recovery flow (run make locally, commit updated assets + lockfile).
 - [x] Add release checklist for new image-option semantics.
 - [x] Add CI coverage upload and trend tracking with Codecov (OIDC).
@@ -127,5 +127,5 @@
 
 - [ ] Add gocyclo check in make analyze with threshold < 25.
 - [ ] Add path safety checks to prevent writes outside repository root.
-- [ ] Add parallel-safe lockfile update strategy if build-target runs concurrently.
+- [ ] Add parallel-safe lockfile update strategy if build runs concurrently.
 - [ ] Add feature flags or versioned options for future transform engines.
