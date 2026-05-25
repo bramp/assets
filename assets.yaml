@@ -1,0 +1,30 @@
+meta:
+  project: "assets"
+  required_fields: ["license", "owner", "copyright"]
+
+assets:
+  - id: "sample_logo"
+    source: "raw_sources/logo.svg"
+    owner: "Andrew Brampton"
+    copyright: "© 2026 Andrew Brampton"
+    license: "Proprietary"
+    outputs:
+      - path: "assets/images/logo_64.png"
+        width: 64
+        height: 64
+        options:
+          scale_mode: "fit"
+          background: "transparent"
+
+  - id: "sample_icon"
+    source: "raw_sources/pixel.png"
+    owner: "Andrew Brampton"
+    copyright: "© 2026 Andrew Brampton"
+    license: "Proprietary"
+    outputs:
+      - path: "assets/icons/pixel_24.png"
+        width: 24
+        height: 24
+        options:
+          scale_mode: "fit"
+          background: "transparent"

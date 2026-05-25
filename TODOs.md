@@ -1,19 +1,19 @@
-# Implementation TODO (for net.bramp.assets)
+# Implementation TODO (for assets)
 
 ## Phase 0: Bootstrap
 
-- [ ] Initialize module as net.bramp.assets.
-- [ ] Set Go version to latest stable used by your updater workflow (go 1.26).
-- [ ] Add project skeleton:
-  - [ ] cmd/asset-mgr/main.go
-  - [ ] internal/manifest/
-  - [ ] internal/lockfile/
-  - [ ] internal/commands/
-  - [ ] internal/render/
-  - [ ] internal/hash/
-- [ ] Add baseline sample files for local iteration:
-  - [ ] assets.yaml
-  - [ ] raw_sources/ with at least one PNG and one SVG input.
+- [x] Initialize module as github.com/bramp/assets.
+- [x] Set Go version to latest stable used by your updater workflow (go 1.26).
+- [x] Add project skeleton:
+  - [x] cmd/assets/main.go
+  - [x] internal/manifest/
+  - [x] internal/lockfile/
+  - [x] internal/commands/
+  - [x] internal/render/
+  - [x] internal/hash/
+- [x] Add baseline sample files for local iteration:
+  - [x] assets.yaml
+  - [x] raw_sources/ with at least one PNG and one SVG input.
 
 ## Phase 1: Tooling and Standards
 
@@ -44,13 +44,13 @@
   - [ ] Ensure dimensions are positive integers.
   - [ ] Validate scale_mode enum (fit, fill, stretch, crop).
   - [ ] Validate background value (transparent or #RRGGBB).
-- [ ] Implement asset-mgr check command:
+- [ ] Implement assets check command:
   - [ ] Human-readable errors to stderr.
   - [ ] Exit 0 on success, 1 on failure.
 
 ## Phase 3: Makefile Fragment Generation (gen)
 
-- [ ] Implement asset-mgr gen:
+- [ ] Implement assets gen:
   - [ ] Emit deterministic GENERATED_ASSET_FILES := ... ordering.
   - [ ] Emit explicit output-to-source dependency lines.
   - [ ] Emit stable, reproducible output formatting.
@@ -66,7 +66,7 @@
   - [ ] Apply optional background flattening.
   - [ ] Apply output format/compression settings.
 - [ ] Ensure target output directory exists before writing.
-- [ ] Implement asset-mgr build-target --target <path> command.
+- [ ] Implement assets build-target --target <path> command.
 
 ## Phase 5: Lockfile and Determinism
 
@@ -79,12 +79,12 @@
 
 ## Phase 6: Verification (verify-lock)
 
-- [ ] Implement asset-mgr verify-lock:
+- [ ] Implement assets verify-lock:
   - [ ] Compare source hashes against lockfile.
   - [ ] Compare computed config_hash against lockfile.
   - [ ] Verify each declared output exists and size matches lockfile when required.
   - [ ] Exit non-zero with actionable mismatch diagnostics.
-- [ ] Add CI job step to run asset-mgr verify-lock.
+- [ ] Add CI job step to run assets verify-lock.
 
 ## Phase 7: Testing and Quality Gates
 
