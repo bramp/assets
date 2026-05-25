@@ -172,7 +172,7 @@ This means SVG->PNG and SVG->JPEG should normally share early pipeline steps (fo
 
 The lockfile tracks the state of the repository's assets. It guarantees that the downstream binaries exactly match the source files and options defined in the manifest. It is written in deterministic JSON (keys sorted alphabetically).
 
-The lockfile intentionally does not store a single `config_hash`. Instead, freshness and reproducibility rely on source file hashes, output file size/existence checks, and recorded command provenance (command chain, tool versions, and host/runtime fingerprint).
+Freshness and reproducibility rely on source file hashes, output file size/existence checks, and recorded command provenance (command chain, tool versions, and host/runtime fingerprint).
 
 The lockfile also records command provenance for each output, including:
 
