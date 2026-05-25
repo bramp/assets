@@ -1,0 +1,23 @@
+meta:
+  project: "golden"
+
+assets:
+  - id: "logo"
+    source: "raw/logo.svg"
+    outputs:
+      - path: "assets/images/logo_64.png"
+        width: 64
+        height: 64
+        options:
+          scale_mode: "fit"
+          background: "transparent"
+
+  - id: "icon"
+    source: "raw/icon.png"
+    outputs:
+      - path: "assets/icons/icon_24.png"
+        width: 24
+        height: 24
+        options:
+          scale_mode: "fit"
+          background: "transparent"
