@@ -17,20 +17,20 @@
 
 ## Phase 1: Tooling and Standards
 
-- [ ] Add Makefile with required targets:
-  - [ ] all: format analyze test
-  - [ ] format: go fmt ./... && goimports -w .
-  - [ ] analyze: go vet ./... && staticcheck ./...
-  - [ ] test: go test ./...
-  - [ ] test-ci: go test -v ./...
-  - [ ] fix: go fmt ./... && go fix ./...
-  - [ ] upgrade: go mod tidy && go get -u ./... && go mod tidy
-- [ ] Add CI workflow for Go tests and analysis:
-  - [ ] Use actions/setup-go@v5.
-  - [ ] Install staticcheck and goimports.
-  - [ ] Cache Go modules.
-  - [ ] Run make test-ci.
-- [ ] Add .github/dependabot.yml with cooldown policy.
+- [x] Add Makefile with required targets:
+  - [x] all: format analyze test
+  - [x] format: go fmt ./... && goimports -w .
+  - [x] analyze: go vet ./... && staticcheck ./...
+  - [x] test: go test ./...
+  - [x] test-ci: go test -v ./...
+  - [x] fix: go fmt ./... && go fix ./...
+  - [x] upgrade: go mod tidy && go get -u ./... && go mod tidy
+- [x] Add CI workflow for Go tests and analysis:
+  - [x] Use actions/setup-go@v5.
+  - [x] Install staticcheck and goimports.
+  - [x] Cache Go modules.
+  - [x] Run make test-ci.
+- [x] Add .github/dependabot.yml with cooldown policy.
 
 ## Phase 2: Manifest and Validation (check)
 
