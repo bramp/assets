@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestRunVerifyLock_Success(t *testing.T) {
@@ -44,6 +47,57 @@ func TestRunVerifyLock_SourceMismatch(t *testing.T) {
 	}
 	if stderr.Len() == 0 {
 		t.Fatal("expected verify-lock stderr")
+	}
+
+	golden, err := os.ReadFile(filepath.Join("testdata", "verify_lock_source_mismatch.golden.txt"))
+	if err != nil {
+		t.Fatalf("read golden: %v", err)
+	}
+	if diff := cmp.Diff(strings.TrimSpace(string(golden)), strings.TrimSpace(stderr.String())); diff != "" {
+		t.Fatalf("verify-lock mismatch output (-want +got):\n%s", diff)
+	}
+}
+
+func TestEndToEnd_CheckGenBuildVerify(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	manifestPath := writePipelineFixture(t, dir)
+
+	// Add strict-mode legal fields for this end-to-end validation.
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	updated := strings.ReplaceAll(string(manifestBytes), "source: \"raw/in.txt\"", "source: \"raw/in.txt\"\n    owner: \"A\"\n    copyright: \"C\"\n    license: \"L\"")
+	if err := os.WriteFile(manifestPath, []byte(updated), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+
+	if exit := RunCheck([]string{"--manifest", manifestPath, "--strict"}, &stderr); exit != 0 {
+		t.Fatalf("check failed: %s", stderr.String())
+	}
+	stderr.Reset()
+
+	if exit := RunGen([]string{"--manifest", manifestPath}, &out, &stderr); exit != 0 {
+		t.Fatalf("gen failed: %s", stderr.String())
+	}
+	if !strings.Contains(out.String(), "out/out.txt: raw/in.txt") {
+		t.Fatalf("unexpected gen output: %s", out.String())
+	}
+	out.Reset()
+	stderr.Reset()
+
+	if exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr); exit != 0 {
+		t.Fatalf("build-target failed: %s", stderr.String())
+	}
+	stderr.Reset()
+
+	if exit := RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 0 {
+		t.Fatalf("verify-lock failed: %s", stderr.String())
 	}
 }
 

@@ -85,7 +85,7 @@
 
 ## Phase 6: Verification (verify-lock)
 
-- [ ] Implement assets verify-lock:
+- [x] Implement assets verify-lock:
   - [x] Compare source hashes against lockfile.
   - [x] Compare recorded source hash and provenance against lockfile.
   - [x] Compare recorded provenance (commands, tool versions, host OS fingerprint, key library versions) against current execution environment/policy.
@@ -95,21 +95,21 @@
 
 ## Phase 7: Testing and Quality Gates
 
-- [ ] Unit tests:
-  - [ ] Manifest parse/validation edge cases.
-  - [ ] Hash determinism and config hash stability.
-  - [ ] Lockfile read/merge/write behavior.
-- [ ] Golden tests:
-  - [ ] gen output.
-  - [ ] verify-lock mismatch messages.
-- [ ] Integration tests:
-  - [ ] End-to-end check -> gen -> build-target -> verify-lock.
+- [x] Unit tests:
+  - [x] Manifest parse/validation edge cases.
+  - [x] Hash determinism and file hash behavior.
+  - [x] Lockfile read/merge/write behavior.
+- [x] Golden tests:
+  - [x] gen output.
+  - [x] verify-lock mismatch messages.
+- [x] Integration tests:
+  - [x] End-to-end check -> gen -> build-target -> verify-lock.
 - [ ] Run and keep clean:
-  - [ ] go fmt ./...
-  - [ ] goimports -w .
-  - [ ] go vet ./...
-  - [ ] staticcheck ./...
-  - [ ] go test ./...
+  - [x] go fmt ./...
+  - [x] goimports -w .
+  - [x] go vet ./...
+  - [x] staticcheck ./...
+  - [x] go test ./...
   - [ ] Maintain high coverage targets (>=85% repo, >=90% core packages).
   - [ ] Treat lint warnings as CI failures.
 
