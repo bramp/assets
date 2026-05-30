@@ -130,3 +130,8 @@
 - [ ] Add path safety checks to prevent writes outside repository root.
 - [ ] Add parallel-safe lockfile update strategy if build runs concurrently.
 - [ ] Add feature flags or versioned options for future transform engines.
+- [ ] Refactor in-place optimizer prep into explicit graph nodes:
+  - [ ] Introduce a dedicated bitmap copy/stage node in `meta.render.tools` (for example `copy-bitmap`) rather than embedding `cp ... &&` in optimizer commands.
+  - [ ] Keep optimizer nodes single-purpose (for example `jpegoptim` only runs optimizer flags).
+  - [ ] Ensure graph resolution selects the copy node only when required by an in-place optimizer.
+  - [ ] Update defaults and tests so planned/executed commands remain one command per step for clearer logs and failure attribution.
