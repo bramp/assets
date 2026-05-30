@@ -320,6 +320,20 @@ Coverage trend reporting is configured via Codecov and GitHub Actions:
 2. CI uploads coverage with `codecov/codecov-action` using OIDC (no long-lived token required).
 3. Threshold policy is stored in `codecov.yml`.
 
+## Developer Setup
+
+If you are developing this repository (not just using `assets`), install hooks so commits run static analysis first:
+
+```bash
+make hooks-install
+```
+
+This installs the pre-commit hook from `.pre-commit-config.yaml`, which runs:
+
+```bash
+make analyze
+```
+
 ## Development Plan
 
 See TODO checklist in TODOs.md.

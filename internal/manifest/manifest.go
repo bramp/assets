@@ -508,22 +508,3 @@ func commandUsesTargetSizePlaceholders(cmd string) bool {
 	return strings.Contains(cmd, "{width}") || strings.Contains(cmd, "{height}") || strings.Contains(cmd, "{WIDTH}") || strings.Contains(cmd, "{HEIGHT}")
 }
 
-func validatePipelineSteps(prefix string, steps []PipelineStep) []error {
-	var errs []error
-	if len(steps) == 0 {
-		errs = append(errs, fmt.Errorf("%s must contain at least one step", prefix))
-		return errs
-	}
-
-	for i, step := range steps {
-		if strings.TrimSpace(step.Tool) == "" {
-			errs = append(errs, fmt.Errorf("%s[%d]: tool is required", prefix, i))
-		}
-		if strings.TrimSpace(step.Command) == "" {
-			errs = append(errs, fmt.Errorf("%s[%d]: command is required", prefix, i))
-		}
-		errs = append(errs, validatePipelineStepSupports(fmt.Sprintf("%s[%d]", prefix, i), step)...)
-	}
-
-	return errs
-}

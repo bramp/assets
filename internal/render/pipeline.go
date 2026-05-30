@@ -303,24 +303,6 @@ func buildPreferenceOrder(outputPref manifest.ToolPreference, defaultPref manife
 	return order
 }
 
-func supportsFormat(supports []string, formatExt string) bool {
-	if len(supports) == 0 {
-		return true
-	}
-	if formatExt == "" {
-		return false
-	}
-
-	normFormat := strings.ToLower(strings.TrimSpace(formatExt))
-	for _, s := range supports {
-		norm := strings.ToLower(strings.TrimSpace(s))
-		if norm == "*" || norm == normFormat {
-			return true
-		}
-	}
-	return false
-}
-
 func binaryAvailable(toolName string) bool {
 	binary := firstCommandToken(toolName)
 	if binary == "" {

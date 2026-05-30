@@ -7,7 +7,6 @@ import (
 	"os"
 )
 
-// TODO(bramp): Is than an existing helper to do this?
 func FileSHA256(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
