@@ -3,6 +3,9 @@ meta:
   render:
     defaults:
       strict_renderer_versions: false
+    tools:
+      magick-transform:
+        accepts: [".png", ".jpg", ".jpeg", ".webp", ".gif"]
 
 assets:
   - id: "logo_svg"
@@ -30,7 +33,7 @@ assets:
         width: 512
         height: 512
         options:
-          scale_mode: "fill"
+          scale_mode: "fit"
           background: "#FFFFFF"
 
   - id: "hero_png"

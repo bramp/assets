@@ -43,14 +43,7 @@ assets --help
 
 ### 1) Create assets.yaml
 
-Start with the smallest manifest.
-For render pipeline defaults, run `assets defaults` and copy the snippet under `meta.render`.
-You can customize the pipeline later (see "Customize Pipeline").
-
-```bash
-# Print a recommended stage-tool catalog and defaults.
-assets defaults
-```
+Start with the smallest manifest. This is a single base logo.svg that gets exported in two different sizes, and file formats.
 
 ```yaml
 meta:
@@ -69,6 +62,10 @@ assets:
         options:
           scale_mode: "fit"
           background: "transparent"
+    outputs:
+      - path: "assets/images/logo_256.jpg"
+        width: 256
+        height: 256
 ```
 
 ### 2) Add root Makefile wiring

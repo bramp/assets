@@ -2,18 +2,28 @@
 GENERATED_ASSET_FILES := out/images/anim_optimized.gif out/images/hero_1280.png out/images/hero_1280_crop.webp out/images/logo_256.png out/images/logo_256.webp out/images/logo_512_fill.jpg out/images/photo_1024.jpg
 
 out/images/anim_optimized.gif: raw/test_gif.gif
-  # gifsicle -O3 -b 'out/images/anim_optimized.gif'
+  # gifsicle -O3 'raw/test_gif.gif' -o 'out/images/anim_optimized.gif'
 out/images/hero_1280.png: raw/test_png.png
-  # vips resize 'raw/test_png.png' 'out/images/hero_1280.png' 1
+  # vips resize 'raw/test_png.png' '__tmp1__' 1
+  # oxipng -o 3 --strip safe --out 'out/images/hero_1280.png' '__tmp1__'
 out/images/hero_1280_crop.webp: raw/test_png.png
-  # vips resize 'raw/test_png.png' 'out/images/hero_1280_crop.webp' 1
+  # vips resize 'raw/test_png.png' '__tmp1__' 1
+  # cwebp -quiet -q 82 '__tmp1__' -o 'out/images/hero_1280_crop.webp'
 out/images/logo_256.png: raw/test_svg.svg
-  # resvg --width 256 --height 256 'raw/test_svg.svg' 'out/images/logo_256.png'
+  # resvg --width 256 --height 256 'raw/test_svg.svg' '__tmp1__'
+  # oxipng -o 3 --strip safe --out 'out/images/logo_256.png' '__tmp1__'
 out/images/logo_256.webp: raw/test_svg.svg
-  # resvg --width 256 --height 256 'raw/test_svg.svg' 'out/images/logo_256.webp'
+  # resvg --width 256 --height 256 'raw/test_svg.svg' '__tmp1__'
+  # vips resize '__tmp1__' '__tmp2__' 1
+  # cwebp -quiet -q 82 '__tmp2__' -o 'out/images/logo_256.webp'
 out/images/logo_512_fill.jpg: raw/test_svg.svg
-  # magick 'raw/test_svg.svg' -resize 512x512^ -gravity center -extent 512x512 'out/images/logo_512_fill.jpg'
+  # resvg --width 512 --height 512 'raw/test_svg.svg' '__tmp1__'
+  # vips resize '__tmp1__' '__tmp2__' 1
+  # cp '__tmp2__' 'out/images/logo_512_fill.jpg'
+  # && jpegoptim --strip-all 'out/images/logo_512_fill.jpg'
 out/images/photo_1024.jpg: raw/test_jpg.jpg
-  # vips resize 'raw/test_jpg.jpg' 'out/images/photo_1024.jpg' 1
+  # vips resize 'raw/test_jpg.jpg' '__tmp1__' 1
+  # cp '__tmp1__' 'out/images/photo_1024.jpg'
+  # && jpegoptim --strip-all 'out/images/photo_1024.jpg'
 
 assets.lock: $(GENERATED_ASSET_FILES)
