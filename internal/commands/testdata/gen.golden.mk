@@ -2,8 +2,10 @@
 GENERATED_ASSET_FILES := assets/icons/icon_24.png assets/images/logo_64.png
 
 assets/icons/icon_24.png: raw/icon.png
-  # vips resize 'raw/icon.png' 'assets/icons/icon_24.png' 1
+  # vips resize 'raw/icon.png' '__tmp1__' 1
+  # oxipng -o 3 --strip safe --out 'assets/icons/icon_24.png' '__tmp1__'
 assets/images/logo_64.png: raw/logo.svg
-  # resvg --width 64 --height 64 'raw/logo.svg' 'assets/images/logo_64.png'
+  # resvg --width 64 --height 64 'raw/logo.svg' '__tmp1__'
+  # oxipng -o 3 --strip safe --out 'assets/images/logo_64.png' '__tmp1__'
 
 assets.lock: $(GENERATED_ASSET_FILES)

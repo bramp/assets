@@ -1,11 +1,17 @@
 render:
   defaults:
     tools: ["resvg", "rsvg-convert", "inkscape", "vips-transform", "magick-transform", "vips-encode", "magick-encode", "oxipng", "gifsicle", "jpegoptim", "cwebp"]
+  optimize_by_format:
+    .png: "oxipng"
+    .gif: "gifsicle"
+    .jpg: "jpegoptim"
+    .jpeg: "jpegoptim"
+    .webp: "cwebp"
   tools:
     resvg:
       tool: "resvg"
       accepts: [".svg"]
-      produces: [".png", ".webp", ".jpg", ".jpeg"]
+      produces: [".png"]
       scale_modes: ["fit"]
       sets_size: "--width {width} --height {height}"
       command: "resvg {sets_size} {input} {output}"
@@ -29,8 +35,11 @@ render:
       command: "vips resize {input} {output} {scale}"
     magick-transform:
       tool: "magick"
-      accepts: ["*"]
-      produces: ["*"]
+      # TODO(bramp): Query ImageMagick capabilities (for example via
+      # `magick -list format`) so accepts/produces reflect runtime support
+      # instead of this static bitmap list.
+      accepts: [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"]
+      produces: [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"]
       scale_modes: ["fit", "fill", "stretch", "crop"]
       command: "magick {input} {resize_args} {output}"
     vips-encode:
@@ -40,26 +49,26 @@ render:
       command: "vips copy {input} {output}"
     magick-encode:
       tool: "magick"
-      accepts: ["*"]
-      produces: ["*"]
+      accepts: [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"]
+      produces: [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"]
       command: "magick {input} {output}"
     oxipng:
       tool: "oxipng"
       accepts: [".png"]
       produces: [".png"]
-      command: "oxipng -o 3 --strip safe {output}"
+      command: "oxipng -o 3 --strip safe --out {output} {input}"
     gifsicle:
       tool: "gifsicle"
       accepts: [".gif"]
       produces: [".gif"]
-      command: "gifsicle -O3 -b {output}"
+      command: "gifsicle -O3 {input} -o {output}"
     jpegoptim:
       tool: "jpegoptim"
       accepts: [".jpg", ".jpeg"]
       produces: [".jpg", ".jpeg"]
-      command: "jpegoptim --strip-all {output}"
+      command: "cp {input} {output} && jpegoptim --strip-all {output}"
     cwebp:
       tool: "cwebp"
       accepts: [".webp"]
       produces: [".webp"]
-      command: "cwebp -quiet -q 82 {output} -o {output}"
+      command: "cwebp -quiet -q 82 {input} -o {output}"

@@ -115,7 +115,8 @@ assets:
 	got := stdout.String()
 	for _, want := range []string{
 		"out/a.png: raw/in.svg",
-		"  # cp 'raw/in.svg' 'out/a.png'",
+		"  # cp 'raw/in.svg' '__tmp1__'",
+		"  # oxipng -o 3 --strip safe --out 'out/a.png' '__tmp1__'",
 		"assets.lock: $(GENERATED_ASSET_FILES)",
 	} {
 		if !strings.Contains(got, want) {
@@ -164,8 +165,9 @@ assets:
 
 	got := stdout.String()
 	for _, want := range []string{
-		"  # cp 'raw/in.svg' 'out/a.png'",
+		"  # cp 'raw/in.svg' '__tmp1__'",
 		"  # && : -resize 100x100",
+		"  # oxipng -o 3 --strip safe --out 'out/a.png' '__tmp1__'",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected generated output to contain %q, got:\n%s", want, got)
@@ -214,8 +216,9 @@ assets:
 	got := stdout.String()
 	for _, want := range []string{
 		"  # cat 'raw/in.svg'",
-		"  # | cat > 'out/a.png'",
+		"  # | cat > '__tmp1__'",
 		"  # && : done",
+		"  # oxipng -o 3 --strip safe --out 'out/a.png' '__tmp1__'",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected generated output to contain %q, got:\n%s", want, got)
