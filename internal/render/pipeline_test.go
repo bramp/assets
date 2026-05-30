@@ -360,6 +360,77 @@ func TestResolvePipeline_CommandChainTable(t *testing.T) {
 	}
 }
 
+func TestResolvePipeline_AppendsConfiguredTerminalOptimizer(t *testing.T) {
+	t.Parallel()
+
+	m := &manifest.Manifest{
+		Meta: manifest.Meta{
+			Render: manifest.RenderConfig{
+				Defaults: manifest.RenderDefaults{Tools: manifest.ToolPreference{"resvg"}},
+				OptimizeByFormat: map[string]string{
+					".png": "oxipng",
+				},
+				Tools: map[string]manifest.PipelineStep{
+					"resvg": {
+						Tool:     "resvg",
+						Accepts:  []string{".svg"},
+						Produces: []string{".png"},
+						Command:  "resvg {input} {output}",
+					},
+					"oxipng": {
+						Tool:     "oxipng",
+						Accepts:  []string{".png"},
+						Produces: []string{".png"},
+						Command:  "oxipng -o 3 --strip safe {output}",
+					},
+				},
+			},
+		},
+	}
+
+	steps, err := ResolvePipelineWithOptions(m, "raw/logo.svg", manifest.Output{Path: "out/logo.png"}, ResolveOptions{CheckAvailability: false})
+	if err != nil {
+		t.Fatalf("resolve pipeline: %v", err)
+	}
+	if len(steps) != 2 {
+		t.Fatalf("expected raster + optimizer, got %+v", steps)
+	}
+	if steps[1].Tool != "oxipng" {
+		t.Fatalf("expected terminal optimizer to be oxipng, got %q", steps[1].Tool)
+	}
+}
+
+func TestResolvePipeline_DoesNotDuplicateTerminalOptimizer(t *testing.T) {
+	t.Parallel()
+
+	m := &manifest.Manifest{
+		Meta: manifest.Meta{
+			Render: manifest.RenderConfig{
+				Defaults: manifest.RenderDefaults{Tools: manifest.ToolPreference{"oxipng"}},
+				OptimizeByFormat: map[string]string{
+					".png": "oxipng",
+				},
+				Tools: map[string]manifest.PipelineStep{
+					"oxipng": {
+						Tool:     "oxipng",
+						Accepts:  []string{".png"},
+						Produces: []string{".png"},
+						Command:  "oxipng -o 3 --strip safe {output}",
+					},
+				},
+			},
+		},
+	}
+
+	steps, err := ResolvePipelineWithOptions(m, "raw/logo.png", manifest.Output{Path: "out/logo.png"}, ResolveOptions{CheckAvailability: false})
+	if err != nil {
+		t.Fatalf("resolve pipeline: %v", err)
+	}
+	if len(steps) != 1 {
+		t.Fatalf("expected single optimizer step, got %+v", steps)
+	}
+}
+
 func expandedCommandsForTest(steps []manifest.PipelineStep, ctx BuildContext) []string {
 	return PlannedCommands(steps, ctx)
 }

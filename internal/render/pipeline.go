@@ -55,12 +55,58 @@ func ResolvePipelineWithOptions(m *manifest.Manifest, sourcePath string, o manif
 	if err != nil {
 		return nil, err
 	}
+	// TODO(bramp): Model final optimization as an explicit graph node/state so
+	// terminal optimization is selected during path resolution instead of appended
+	// after graph traversal.
+	steps, err = appendTerminalOptimizer(m.Meta.Render, steps, outputExt, opts)
+	if err != nil {
+		return nil, err
+	}
 
 	if len(steps) == 0 {
 		return nil, fmt.Errorf("no pipeline steps resolved for target %q", o.Path)
 	}
 
 	return steps, nil
+}
+
+func appendTerminalOptimizer(cfg manifest.RenderConfig, steps []manifest.PipelineStep, outputExt string, opts ResolveOptions) ([]manifest.PipelineStep, error) {
+	normExt := strings.ToLower(strings.TrimSpace(outputExt))
+	if normExt == "" || len(cfg.OptimizeByFormat) == 0 {
+		return steps, nil
+	}
+
+	optimizeStepName, ok := cfg.OptimizeByFormat[normExt]
+	if !ok {
+		return steps, nil
+	}
+	normOptimizeStepName := strings.TrimSpace(optimizeStepName)
+	if normOptimizeStepName == "" {
+		return steps, nil
+	}
+
+	optimizeStep, ok := cfg.Tools[normOptimizeStepName]
+	if !ok {
+		return nil, fmt.Errorf("optimizer %q configured for %q not found in render tools", normOptimizeStepName, normExt)
+	}
+	if !matchesFormatList(optimizeStep.Accepts, normExt) || !matchesFormatList(optimizeStep.Produces, normExt) {
+		return nil, fmt.Errorf("optimizer %q configured for %q must accept and produce %q", normOptimizeStepName, normExt, normExt)
+	}
+
+	if len(steps) > 0 && samePipelineStep(steps[len(steps)-1], optimizeStep) {
+		return steps, nil
+	}
+
+	toolAvailable := buildAvailabilityChecker(opts)
+	if !toolAvailable(optimizeStep.Tool) {
+		return nil, fmt.Errorf("optimizer tool %q for %q is not available", optimizeStep.Tool, normExt)
+	}
+
+	return append(steps, optimizeStep), nil
+}
+
+func samePipelineStep(a manifest.PipelineStep, b manifest.PipelineStep) bool {
+	return strings.TrimSpace(a.Tool) == strings.TrimSpace(b.Tool) && strings.TrimSpace(a.Command) == strings.TrimSpace(b.Command)
 }
 
 func supportsScaleMode(supported []string, mode string) bool {
@@ -295,8 +341,12 @@ func ExecutePipeline(steps []manifest.PipelineStep, ctx BuildContext) error {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	ctx.TmpPath = filepath.Join(tmpDir, "stage1.tmp")
-	ctx.Tmp2Path = filepath.Join(tmpDir, "stage2.tmp")
+	stageExt := strings.ToLower(strings.TrimSpace(filepath.Ext(ctx.OutputPath)))
+	if stageExt == "" {
+		stageExt = ".tmp"
+	}
+	ctx.TmpPath = filepath.Join(tmpDir, "stage1"+stageExt)
+	ctx.Tmp2Path = filepath.Join(tmpDir, "stage2"+stageExt)
 	currentInput := ctx.InputPath
 
 	for i, step := range steps {
