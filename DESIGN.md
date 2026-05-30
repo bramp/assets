@@ -211,43 +211,28 @@ The lockfile also records command provenance for each output, including:
 ```json
 {
   "version": "1.0",
-  "generated_at": "2026-05-25T10:55:32Z",
-  "assets": {
-    "app_logo": {
-      "source_path": "raw_sources/logo.svg",
-      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "outputs": {
-        "assets/images/logo_128_ie.png": {
-          "provenance": {
-            "command_chain": [
-              "resvg --dpi=96 {input} {tmp}",
-              "vips resize {tmp} {output} {scale}",
-              "oxipng -o 4 --strip safe {output}"
-            ],
-            "tools": {
-              "host_uname": "Linux buildbox 6.8.0-31-generic #31-Ubuntu SMP x86_64 GNU/Linux",
-              "resvg": "0.43.0",
-              "vips": "8.15.2",
-              "oxipng": "9.1.2",
-              "librsvg": "2.58.1",
-              "libvips": "8.15.2"
-            }
-          },
-          "size_bytes": 14220
-        },
-        "assets/images/logo_512.png": {
-          "size_bytes": 52104
+  "last_updated_at": "2026-05-25T10:55:32Z",
+  "files": {
+    "assets/images/logo_128_ie.png": {
+      "sources": {
+        "raw_sources/logo.svg": {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size_bytes": 32768
         }
-      }
-    },
-    "search_icon": {
-      "source_path": "raw_sources/icons/search.png",
-      "source_sha256": "4a5e6f7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f",
-      "outputs": {
-        "assets/icons/search_24.png": {
-          "size_bytes": 3108
+      },
+      "provenance": {
+        "command_chain": [
+          "resvg --dpi=96 raw_sources/logo.svg assets/images/logo_128_ie.png",
+          "oxipng -o 4 --strip safe assets/images/logo_128_ie.png"
+        ],
+        "tools": {
+          "host_uname": "Linux buildbox 6.8.0-31-generic #31-Ubuntu SMP x86_64 GNU/Linux",
+          "resvg": "0.43.0",
+          "oxipng": "9.1.2"
         }
-      }
+      },
+      "sha256": "6f9f3465fca64f8623f01a2ec7ef2f094eac9522937b68f0362eb8bb4f02267f",
+      "size_bytes": 14220
     }
   }
 }
@@ -303,7 +288,7 @@ Executes the discrete rendering transformation for a *single* target asset path.
   - Expand placeholders using the target context (`{input}`, `{tmp}`, `{tmp2}`, `{output}`, and derived values).
   - Run each step command with deterministic execution settings.
   - Ensure the pipeline writes the requested output path.
-5. Updates the target asset path entry inside `assets.lock` with the fresh `source_sha256`, recorded provenance (including chosen command chain), and final file size in bytes.
+5. Updates the output-path entry inside `assets.lock.files` with source metadata (`sources` map keyed by source path), recorded provenance (including chosen command chain), output hash (`sha256`), and final output `size_bytes`.
 
 
 

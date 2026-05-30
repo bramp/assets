@@ -1,0 +1,128 @@
+{
+  "version": "1.0",
+  "generated_at": "2026-05-30T18:11:05Z",
+  "assets": {
+    "anim_gif": {
+      "source_path": "raw/test_gif.gif",
+      "source_sha256": "86e1c6178876a1ea4ccb86f8499d0437520926ab0bd861bb644e3459b9decd4a",
+      "outputs": {
+        "out/images/anim_optimized.gif": {
+          "provenance": {
+            "command_chain": [
+              "gifsicle -O3 {input} -o {output}"
+            ],
+            "tools": {
+              "gifsicle": "LCDF Gifsicle 1.96",
+              "host_uname": "Darwin brampbook 25.5.0 Darwin Kernel Version 25.5.0: Mon Apr 27 20:39:09 PDT 2026; root:xnu-12377.121.6~2/RELEASE_ARM64_T6020 arm64"
+            }
+          },
+          "size_bytes": 1346
+        }
+      }
+    },
+    "hero_png": {
+      "source_path": "raw/test_png.png",
+      "source_sha256": "0d3c15b4c1783c70e68852533f166ac6285b7508e37f98ec11861df76e887eec",
+      "outputs": {
+        "out/images/hero_1280.png": {
+          "provenance": {
+            "command_chain": [
+              "magick {input} {resize_args} {output}",
+              "oxipng -o 3 --strip safe --out {output} {input}"
+            ],
+            "tools": {
+              "host_uname": "Darwin brampbook 25.5.0 Darwin Kernel Version 25.5.0: Mon Apr 27 20:39:09 PDT 2026; root:xnu-12377.121.6~2/RELEASE_ARM64_T6020 arm64",
+              "magick": "Version: ImageMagick 7.1.2-24 Q16-HDRI aarch64 3c45ab0bf:20260525 https://imagemagick.org",
+              "oxipng": "oxipng 10.1.1"
+            }
+          },
+          "size_bytes": 8445
+        },
+        "out/images/hero_1280_crop.webp": {
+          "provenance": {
+            "command_chain": [
+              "magick {input} {resize_args} {output}",
+              "cwebp -quiet -q 82 {input} -o {output}"
+            ],
+            "tools": {
+              "host_uname": "Darwin brampbook 25.5.0 Darwin Kernel Version 25.5.0: Mon Apr 27 20:39:09 PDT 2026; root:xnu-12377.121.6~2/RELEASE_ARM64_T6020 arm64",
+              "magick": "Version: ImageMagick 7.1.2-24 Q16-HDRI aarch64 3c45ab0bf:20260525 https://imagemagick.org"
+            }
+          },
+          "size_bytes": 5932
+        }
+      }
+    },
+    "logo_svg": {
+      "source_path": "raw/test_svg.svg",
+      "source_sha256": "7c65a56577d966d15b73dfed69a214b5d78677b98518492675dbc81b83d9ab67",
+      "outputs": {
+        "out/images/logo_256.png": {
+          "provenance": {
+            "command_chain": [
+              "resvg {sets_size} {input} {output}",
+              "oxipng -o 3 --strip safe --out {output} {input}"
+            ],
+            "tools": {
+              "host_uname": "Darwin brampbook 25.5.0 Darwin Kernel Version 25.5.0: Mon Apr 27 20:39:09 PDT 2026; root:xnu-12377.121.6~2/RELEASE_ARM64_T6020 arm64",
+              "oxipng": "oxipng 10.1.1",
+              "resvg": "0.47.0"
+            }
+          },
+          "size_bytes": 1953
+        },
+        "out/images/logo_256.webp": {
+          "provenance": {
+            "command_chain": [
+              "resvg {sets_size} {input} {output}",
+              "magick {input} {resize_args} {output}",
+              "cwebp -quiet -q 82 {input} -o {output}"
+            ],
+            "tools": {
+              "host_uname": "Darwin brampbook 25.5.0 Darwin Kernel Version 25.5.0: Mon Apr 27 20:39:09 PDT 2026; root:xnu-12377.121.6~2/RELEASE_ARM64_T6020 arm64",
+              "magick": "Version: ImageMagick 7.1.2-24 Q16-HDRI aarch64 3c45ab0bf:20260525 https://imagemagick.org",
+              "resvg": "0.47.0"
+            }
+          },
+          "size_bytes": 2806
+        },
+        "out/images/logo_512_fill.jpg": {
+          "provenance": {
+            "command_chain": [
+              "rsvg-convert -w {width} -h {height} -o {output} {input}",
+              "magick {input} {resize_args} {output}",
+              "cp {input} {output} \u0026\u0026 jpegoptim --strip-all {output}"
+            ],
+            "tools": {
+              "host_uname": "Darwin brampbook 25.5.0 Darwin Kernel Version 25.5.0: Mon Apr 27 20:39:09 PDT 2026; root:xnu-12377.121.6~2/RELEASE_ARM64_T6020 arm64",
+              "jpegoptim": "jpegoptim v1.5.6  aarch64-apple-darwin24.4.0 (Sep 15 2025)",
+              "magick": "Version: ImageMagick 7.1.2-24 Q16-HDRI aarch64 3c45ab0bf:20260525 https://imagemagick.org",
+              "rsvg-convert": "rsvg-convert version 2.62.2"
+            }
+          },
+          "size_bytes": 22418
+        }
+      }
+    },
+    "photo_jpg": {
+      "source_path": "raw/test_jpg.jpg",
+      "source_sha256": "0fd316cee0baa848a7fc0629e33fe48186232eff59aeafd9e0e86e1cfb1d49b1",
+      "outputs": {
+        "out/images/photo_1024.jpg": {
+          "provenance": {
+            "command_chain": [
+              "magick {input} {resize_args} {output}",
+              "cp {input} {output} \u0026\u0026 jpegoptim --strip-all {output}"
+            ],
+            "tools": {
+              "host_uname": "Darwin brampbook 25.5.0 Darwin Kernel Version 25.5.0: Mon Apr 27 20:39:09 PDT 2026; root:xnu-12377.121.6~2/RELEASE_ARM64_T6020 arm64",
+              "jpegoptim": "jpegoptim v1.5.6  aarch64-apple-darwin24.4.0 (Sep 15 2025)",
+              "magick": "Version: ImageMagick 7.1.2-24 Q16-HDRI aarch64 3c45ab0bf:20260525 https://imagemagick.org"
+            }
+          },
+          "size_bytes": 29902
+        }
+      }
+    }
+  }
+}

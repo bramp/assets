@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 
 	"github.com/bramp/assets/internal/hash"
@@ -74,28 +73,25 @@ func RunBuildTarget(args []string, stderr io.Writer) int {
 		return 1
 	}
 
-	st, err := os.Stat(ctx.OutputPath)
+	outputHash, outputSize, err := hash.FileSHA256AndSize(ctx.OutputPath)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "build: failed to stat output: %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "build: failed to hash output: %v\n", err)
 		return 1
 	}
 
-	sourceHash, err := hash.FileSHA256(ctx.InputPath)
+	sourceHash, sourceSize, err := hash.FileSHA256AndSize(ctx.InputPath)
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "build: failed to hash source: %v\n", err)
 		return 1
 	}
 
-	lf, err := lockfile.Load(filepath.Join(baseDir, *lockPath))
-	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "build: failed to load lockfile: %v\n", err)
-		return 1
-	}
-
+	lockAbsPath := filepath.Join(baseDir, *lockPath)
 	provenance := render.CollectProvenance(steps)
-	lf.UpsertOutput(spec.Asset.ID, spec.Asset.Source, sourceHash, spec.Output.Path, st.Size(), provenance)
-	if err := lf.Save(filepath.Join(baseDir, *lockPath)); err != nil {
-		_, _ = fmt.Fprintf(stderr, "build: failed to save lockfile: %v\n", err)
+	if err := lockfile.Update(lockAbsPath, func(lf *lockfile.File) error {
+		lf.UpsertOutput(map[string]lockfile.SourceRef{spec.Asset.Source: {SHA256: sourceHash, SizeBytes: sourceSize}}, spec.Output.Path, outputHash, outputSize, provenance)
+		return nil
+	}); err != nil {
+		_, _ = fmt.Fprintf(stderr, "build: failed to update lockfile: %v\n", err)
 		return 1
 	}
 

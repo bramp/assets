@@ -73,21 +73,27 @@ func TestRunBuildTarget_Success(t *testing.T) {
 	if err := json.Unmarshal(lockBytes, &lockData); err != nil {
 		t.Fatalf("unmarshal lockfile: %v", err)
 	}
-	assets, ok := lockData["assets"].(map[string]interface{})
-	if !ok || len(assets) == 0 {
-		t.Fatalf("expected assets entries in lockfile: %s", string(lockBytes))
-	}
-	aData, ok := assets["a"].(map[string]interface{})
+	files, ok := lockData["files"].(map[string]interface{})
 	if !ok {
-		t.Fatalf("expected asset entry 'a' in lockfile: %s", string(lockBytes))
+		t.Fatalf("expected files map in lockfile: %s", string(lockBytes))
 	}
-	outputs, ok := aData["outputs"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected outputs in lockfile asset entry: %s", string(lockBytes))
-	}
-	oData, ok := outputs["out/out.txt"].(map[string]interface{})
+	oData, ok := files["out/out.txt"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("expected output entry in lockfile: %s", string(lockBytes))
+	}
+	sources, ok := oData["sources"].(map[string]interface{})
+	if !ok || len(sources) != 1 {
+		t.Fatalf("expected one source entry, got %v", oData["sources"])
+	}
+	sourceEntry, ok := sources["raw/in.txt"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected source key raw/in.txt, got %v", sources)
+	}
+	if sourceEntry["size_bytes"] == nil {
+		t.Fatalf("expected source size_bytes field, got %v", sourceEntry)
+	}
+	if _, ok := oData["sha256"].(string); !ok {
+		t.Fatalf("expected sha256 field, got %v", oData["sha256"])
 	}
 	if _, hasConfigHash := oData["config_hash"]; hasConfigHash {
 		t.Fatalf("did not expect config_hash in lockfile output: %s", string(lockBytes))

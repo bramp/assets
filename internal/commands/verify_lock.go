@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -45,27 +44,21 @@ func RunVerifyLock(args []string, stderr io.Writer) int {
 
 	var errs []string
 	for _, a := range m.Assets {
-		lAsset, ok := lf.Assets[a.ID]
-		if !ok {
-			errs = append(errs, fmt.Sprintf("asset %q missing from lockfile", a.ID))
-			continue
-		}
-
 		sourcePath := filepath.Join(baseDir, a.Source)
-		sourceHash, hashErr := hash.FileSHA256(sourcePath)
+		sourceHash, sourceSize, hashErr := hash.FileSHA256AndSize(sourcePath)
 		if hashErr != nil {
 			errs = append(errs, fmt.Sprintf("asset %q source hash failed: %v", a.ID, hashErr))
 			continue
 		}
-		if sourceHash != lAsset.SourceSHA256 {
-			errs = append(errs, fmt.Sprintf("asset %q source hash mismatch", a.ID))
-		}
 
 		for _, out := range a.Outputs {
-			lOut, ok := lAsset.Outputs[out.Path]
+			lOut, ok := lf.Files[out.Path]
 			if !ok {
 				errs = append(errs, fmt.Sprintf("asset %q output %q missing from lockfile", a.ID, out.Path))
 				continue
+			}
+			if !hasSourceRef(lOut.Sources, a.Source, sourceHash, sourceSize) {
+				errs = append(errs, fmt.Sprintf("asset %q output %q source metadata mismatch", a.ID, out.Path))
 			}
 
 			steps, resolveErr := render.ResolvePipeline(m, a.Source, out)
@@ -80,13 +73,16 @@ func RunVerifyLock(args []string, stderr io.Writer) int {
 			}
 
 			outPath := filepath.Join(baseDir, out.Path)
-			st, statErr := os.Stat(outPath)
-			if statErr != nil {
+			outputHash, outputSize, hashErr := hash.FileSHA256AndSize(outPath)
+			if hashErr != nil {
 				errs = append(errs, fmt.Sprintf("asset %q output %q missing on disk", a.ID, out.Path))
 				continue
 			}
-			if st.Size() != lOut.SizeBytes {
+			if outputSize != lOut.SizeBytes {
 				errs = append(errs, fmt.Sprintf("asset %q output %q size mismatch", a.ID, out.Path))
+			}
+			if outputHash != lOut.SHA256 {
+				errs = append(errs, fmt.Sprintf("asset %q output %q output hash mismatch", a.ID, out.Path))
 			}
 		}
 	}
@@ -99,4 +95,12 @@ func RunVerifyLock(args []string, stderr io.Writer) int {
 		_, _ = fmt.Fprintf(stderr, "verify: %s\n", msg)
 	}
 	return 1
+}
+
+func hasSourceRef(sources map[string]lockfile.SourceRef, path string, sha256 string, sizeBytes int64) bool {
+	src, ok := sources[path]
+	if !ok {
+		return false
+	}
+	return src.SHA256 == sha256 && src.SizeBytes == sizeBytes
 }

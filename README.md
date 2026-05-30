@@ -282,6 +282,31 @@ Verifies manifest, sources, lockfile, and output size/provenance alignment.
 assets verify
 ```
 
+Lockfile shape (per generated output):
+
+```json
+{
+  "version": "1.0",
+  "last_updated_at": "2026-01-02T03:04:05Z",
+  "files": {
+    "assets/images/logo_128.png": {
+      "sources": {
+        "raw/logo.svg": {
+          "sha256": "abc123",
+          "size_bytes": 1111
+        }
+      },
+      "provenance": {
+        "command_chain": ["..."],
+        "tools": {"resvg": "0.42.0"}
+      },
+      "sha256": "aaa111",
+      "size_bytes": 2048
+    }
+  }
+}
+```
+
 ## Failure And Recovery
 
 Common failures:

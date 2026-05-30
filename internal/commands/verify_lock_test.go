@@ -197,8 +197,8 @@ func TestRunVerifyLock_OtherFailures(t *testing.T) {
 		if exit := RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 1 {
 			t.Fatalf("expected missing-asset failure, got %d", exit)
 		}
-		if !strings.Contains(stderr.String(), "missing from lockfile") {
-			t.Fatalf("expected missing asset message, got: %s", stderr.String())
+		if !strings.Contains(stderr.String(), "output \"out/out.txt\" missing from lockfile") {
+			t.Fatalf("expected missing output message, got: %s", stderr.String())
 		}
 	})
 }
