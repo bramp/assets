@@ -43,8 +43,14 @@ assets --help
 
 ### 1) Create assets.yaml
 
-Start with the smallest manifest and rely on sane built-in defaults.
-You can customize the render pipeline later (see "Customize Pipeline").
+Start with the smallest manifest.
+For render pipeline defaults, run `assets defaults` and copy the snippet under `meta.render`.
+You can customize the pipeline later (see "Customize Pipeline").
+
+```bash
+# Print a recommended stage-tool catalog and defaults.
+assets defaults
+```
 
 ```yaml
 meta:
@@ -109,29 +115,92 @@ assets verify
 
 ## Customize Pipeline
 
-When defaults are not enough, define render profiles and select one per output.
+When defaults are not enough, define stage catalogs and pick tools independently.
+
+Graph tool selection is composable:
+
+- Global defaults: set ordered tool preference list in `meta.render.defaults.tools`.
+- Per output: override with `outputs[].options.tools` as either a string or list.
+- Tool compatibility metadata: set `accepts` and `produces` per tool entry so the resolver can find the shortest valid conversion path.
+- Size capability metadata: set `sets_size` to a command fragment template (for example `"--width {width} --height {height}"`) so tools can optionally honor target width/height.
+- Mode capability metadata: set `scale_modes` per tool entry so the resolver can require aspect-ratio behavior compatibility.
+- Selection behavior: shortest valid path wins; preference order breaks ties.
+
+Resize intent (`options.scale_mode`) semantics:
+
+- `fit`: preserve aspect ratio; fully visible within target box.
+- `fill`: preserve aspect ratio; cover target box (cropping may occur).
+- `stretch`: ignore aspect ratio; force exact target width/height.
+- `crop`: preserve aspect ratio and crop to target box.
 
 ```yaml
 meta:
   project: "My App"
   render:
     defaults:
-      profile: "basic"
-    profiles:
-      basic:
-        pipeline:
-          # Convert SVG/vector input into an intermediate raster image.
-          - stage: "rasterize"
-            tool: "resvg"
-            command: "resvg {input} {tmp}"
-          # Resize or otherwise transform the intermediate image.
-          - stage: "transform"
-            tool: "vips"
-            command: "vips resize {tmp} {tmp2} {scale}"
-          # Encode the final output file at the target path.
-          - stage: "encode"
-            tool: "vips"
-            command: "vips copy {tmp2} {output}"
+      tools: ["resvg", "rsvg-convert", "inkscape", "vips-transform", "magick-transform", "vips-encode", "magick-encode", "oxipng", "gifsicle", "jpegoptim", "cwebp"]
+    tools:
+      resvg:
+        tool: "resvg"
+        accepts: [".svg"]
+        produces: [".png", ".webp", ".jpg", ".jpeg"]
+        scale_modes: ["fit"]
+        sets_size: "--width {width} --height {height}"
+        command: "resvg {sets_size} {input} {output}"
+      rsvg-convert:
+        tool: "rsvg-convert"
+        accepts: [".svg"]
+        produces: [".png"]
+        scale_modes: ["fit"]
+        command: "rsvg-convert -w {width} -h {height} -o {output} {input}"
+      inkscape:
+        tool: "inkscape"
+        accepts: [".svg", ".eps"]
+        produces: [".png"]
+        scale_modes: ["fit"]
+        command: "inkscape {input} --export-filename={output} --export-width={width} --export-height={height}"
+      vips-transform:
+        tool: "vips"
+        accepts: [".png", ".jpg", ".jpeg", ".webp", ".gif"]
+        produces: [".png", ".jpg", ".jpeg", ".webp", ".gif"]
+        scale_modes: ["fit", "fill", "stretch", "crop"]
+        command: "vips resize {input} {output} {scale}"
+      magick-transform:
+        tool: "magick"
+        accepts: ["*"]
+        produces: ["*"]
+        scale_modes: ["fit", "fill", "stretch", "crop"]
+        command: "magick {input} {resize_args} {output}"
+      vips-encode:
+        tool: "vips"
+        accepts: [".png", ".jpg", ".jpeg", ".webp"]
+        produces: [".png", ".jpg", ".jpeg", ".webp"]
+        command: "vips copy {input} {output}"
+      magick-encode:
+        tool: "magick"
+        accepts: ["*"]
+        produces: ["*"]
+        command: "magick {input} {output}"
+      oxipng:
+        tool: "oxipng"
+        accepts: [".png"]
+        produces: [".png"]
+        command: "oxipng -o 3 --strip safe {output}"
+      gifsicle:
+        tool: "gifsicle"
+        accepts: [".gif"]
+        produces: [".gif"]
+        command: "gifsicle -O3 -b {output}"
+      jpegoptim:
+        tool: "jpegoptim"
+        accepts: [".jpg", ".jpeg"]
+        produces: [".jpg", ".jpeg"]
+        command: "jpegoptim --strip-all {output}"
+      cwebp:
+        tool: "cwebp"
+        accepts: [".webp"]
+        produces: [".webp"]
+        command: "cwebp -quiet -q 82 {output} -o {output}"
 
 assets:
   - id: "logo"
@@ -141,15 +210,29 @@ assets:
         width: 128
         height: 128
         options:
-          profile: "basic"
+          tools: ["inkscape", "resvg", "rsvg-convert", "magick-transform", "magick-encode"]
           scale_mode: "fit"
           background: "transparent"
 ```
+
+Example behavior:
+
+- `assets/images/logo.png` resolves the shortest valid graph path from source format to `.png`, then uses `defaults.tools` ordering to break ties.
+- `assets/images/anim.gif` resolves similarly for `.gif` and can choose a different chain based on tool capabilities.
+- Per-output override still wins (for example `options.tools: ["resvg", "magick-encode"]`).
+
+## Complex Example
+
+For a full graph-first setup with mixed source formats, fallback tools, scale mode constraints, and optimizer-only outputs, see:
+
+- `examples/complex/assets.yaml`
+- `examples/complex/README.md`
 
 ## Commands
 
 - assets check
 - assets gen
+- assets defaults
 - assets build --target <path>
 - assets verify
 
@@ -172,7 +255,16 @@ This is primarily useful for debugging or for non-Make workflows.
 
 ```bash
 # Regenerate deterministic Makefile rules from assets.yaml.
+# Output includes commented planned command chains per target.
 assets gen > .assets.mk
+```
+
+### assets defaults
+
+Prints a recommended `meta.render` snippet you can paste into `assets.yaml`.
+
+```bash
+assets defaults
 ```
 
 ### assets build

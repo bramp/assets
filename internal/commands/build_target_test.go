@@ -20,28 +20,27 @@ func TestRunBuildTarget_Success(t *testing.T) {
 		t.Fatalf("write source: %v", err)
 	}
 
-	manifest := `meta:
-  project: "test"
-  render:
-    defaults:
-      profile: "basic"
-    profiles:
-      basic:
-        pipeline:
-          - stage: "copy"
-            tool: "cp"
-            command: "cp {input} {output}"
-assets:
-  - id: "a"
-    source: "raw/in.txt"
-    outputs:
-      - path: "out/out.txt"
-        width: 1
-        height: 1
-        options:
-          scale_mode: "fit"
-          background: "transparent"
-`
+	manifest := "meta:\n" +
+		"  project: \"test\"\n" +
+		"  render:\n" +
+		"    defaults:\n" +
+		"      tools: [\"copy\"]\n" +
+		"    tools:\n" +
+		"      copy:\n" +
+		"        tool: \"cp\"\n" +
+		"        command: \"cp {input} {output}\"\n" +
+		"        accepts: [\".txt\"]\n" +
+		"        produces: [\".txt\"]\n" +
+		"assets:\n" +
+		"  - id: \"a\"\n" +
+		"    source: \"raw/in.txt\"\n" +
+		"    outputs:\n" +
+		"      - path: \"out/out.txt\"\n" +
+		"        width: 1\n" +
+		"        height: 1\n" +
+		"        options:\n" +
+		"          scale_mode: \"fit\"\n" +
+		"          background: \"transparent\"\n"
 	manifestPath := filepath.Join(dir, "assets.yaml")
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o644); err != nil {
 		t.Fatalf("write manifest: %v", err)
@@ -160,28 +159,27 @@ func TestRunBuildTarget_PipelineFailure(t *testing.T) {
 		t.Fatalf("write source: %v", err)
 	}
 
-	manifest := `meta:
-  project: "test"
-  render:
-    defaults:
-      profile: "basic"
-    profiles:
-      basic:
-        pipeline:
-          - stage: "fail"
-            tool: "sh"
-            command: "false"
-assets:
-  - id: "a"
-    source: "raw/in.txt"
-    outputs:
-      - path: "out/out.txt"
-        width: 1
-        height: 1
-        options:
-          scale_mode: "fit"
-          background: "transparent"
-`
+	manifest := "meta:\n" +
+		"  project: \"test\"\n" +
+		"  render:\n" +
+		"    defaults:\n" +
+		"      tools: [\"fail\"]\n" +
+		"    tools:\n" +
+		"      fail:\n" +
+		"        tool: \"sh\"\n" +
+		"        command: \"false\"\n" +
+		"        accepts: [\".txt\"]\n" +
+		"        produces: [\".txt\"]\n" +
+		"assets:\n" +
+		"  - id: \"a\"\n" +
+		"    source: \"raw/in.txt\"\n" +
+		"    outputs:\n" +
+		"      - path: \"out/out.txt\"\n" +
+		"        width: 1\n" +
+		"        height: 1\n" +
+		"        options:\n" +
+		"          scale_mode: \"fit\"\n" +
+		"          background: \"transparent\"\n"
 	manifestPath := filepath.Join(dir, "assets.yaml")
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o644); err != nil {
 		t.Fatalf("write manifest: %v", err)
@@ -239,28 +237,27 @@ assets:
 
 	t.Run("source hash failure", func(t *testing.T) {
 		dir := t.TempDir()
-		manifest := `meta:
-  project: "test"
-  render:
-    defaults:
-      profile: "basic"
-    profiles:
-      basic:
-        pipeline:
-          - stage: "emit"
-            tool: "sh"
-            command: "echo hello > {output}"
-assets:
-  - id: "a"
-    source: "raw/missing.txt"
-    outputs:
-      - path: "out/out.txt"
-        width: 1
-        height: 1
-        options:
-          scale_mode: "fit"
-          background: "transparent"
-`
+		manifest := "meta:\n" +
+			"  project: \"test\"\n" +
+			"  render:\n" +
+			"    defaults:\n" +
+			"      tools: [\"emit\"]\n" +
+			"    tools:\n" +
+			"      emit:\n" +
+			"        tool: \"sh\"\n" +
+			"        command: \"echo hello > {output}\"\n" +
+			"        accepts: [\".txt\"]\n" +
+			"        produces: [\".txt\"]\n" +
+			"assets:\n" +
+			"  - id: \"a\"\n" +
+			"    source: \"raw/missing.txt\"\n" +
+			"    outputs:\n" +
+			"      - path: \"out/out.txt\"\n" +
+			"        width: 1\n" +
+			"        height: 1\n" +
+			"        options:\n" +
+			"          scale_mode: \"fit\"\n" +
+			"          background: \"transparent\"\n"
 		manifestPath := filepath.Join(dir, "assets.yaml")
 		if err := os.WriteFile(manifestPath, []byte(manifest), 0o644); err != nil {
 			t.Fatalf("write manifest: %v", err)
@@ -282,28 +279,27 @@ assets:
 			t.Fatalf("write source: %v", err)
 		}
 
-		manifest := `meta:
-  project: "test"
-  render:
-    defaults:
-      profile: "basic"
-    profiles:
-      basic:
-        pipeline:
-          - stage: "copy"
-            tool: "cp"
-            command: "cp {input} {output}"
-assets:
-  - id: "a"
-    source: "raw/in.txt"
-    outputs:
-      - path: "out/out.txt"
-        width: 1
-        height: 1
-        options:
-          scale_mode: "fit"
-          background: "transparent"
-`
+		manifest := "meta:\n" +
+			"  project: \"test\"\n" +
+			"  render:\n" +
+			"    defaults:\n" +
+			"      tools: [\"copy\"]\n" +
+			"    tools:\n" +
+			"      copy:\n" +
+			"        tool: \"cp\"\n" +
+			"        command: \"cp {input} {output}\"\n" +
+			"        accepts: [\".txt\"]\n" +
+			"        produces: [\".txt\"]\n" +
+			"assets:\n" +
+			"  - id: \"a\"\n" +
+			"    source: \"raw/in.txt\"\n" +
+			"    outputs:\n" +
+			"      - path: \"out/out.txt\"\n" +
+			"        width: 1\n" +
+			"        height: 1\n" +
+			"        options:\n" +
+			"          scale_mode: \"fit\"\n" +
+			"          background: \"transparent\"\n"
 		manifestPath := filepath.Join(dir, "assets.yaml")
 		if err := os.WriteFile(manifestPath, []byte(manifest), 0o644); err != nil {
 			t.Fatalf("write manifest: %v", err)

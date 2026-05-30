@@ -2,4 +2,8 @@
 GENERATED_ASSET_FILES := assets/icons/icon_24.png assets/images/logo_64.png
 
 assets/icons/icon_24.png: raw/icon.png
+  # vips resize 'raw/icon.png' 'assets/icons/icon_24.png' 1
 assets/images/logo_64.png: raw/logo.svg
+  # resvg --width 64 --height 64 'raw/logo.svg' 'assets/images/logo_64.png'
+
+assets.lock: $(GENERATED_ASSET_FILES)

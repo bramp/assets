@@ -26,6 +26,100 @@ assets: []
 	}
 }
 
+func TestLoadFile_AppliesBuiltInRenderDefaults(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "assets.yaml")
+	data := `meta:
+  project: "x"
+assets:
+  - id: "a"
+    source: "raw/in.svg"
+    outputs:
+      - path: "out/a.png"
+        width: 1
+        height: 1
+        options:
+          scale_mode: "fit"
+          background: "transparent"
+`
+	if err := os.MkdirAll(filepath.Join(dir, "raw"), 0o755); err != nil {
+		t.Fatalf("mkdir raw: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "raw", "in.svg"), []byte("<svg/>") , 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	m, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+
+	if len(m.Meta.Render.Tools) == 0 {
+		t.Fatal("expected built-in render tools to be present")
+	}
+	if len(m.Meta.Render.Defaults.Tools) == 0 {
+		t.Fatal("expected built-in default tool order to be present")
+	}
+	if _, ok := m.Meta.Render.Tools["resvg"]; !ok {
+		t.Fatal("expected built-in resvg tool")
+	}
+}
+
+func TestLoadFile_UserCanAmendBuiltInTool(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "assets.yaml")
+	data := `meta:
+  project: "x"
+  render:
+    tools:
+      resvg:
+        command: "custom-resvg {input} {output}"
+assets:
+  - id: "a"
+    source: "raw/in.svg"
+    outputs:
+      - path: "out/a.png"
+        width: 1
+        height: 1
+        options:
+          scale_mode: "fit"
+          background: "transparent"
+          tools: "resvg"
+`
+	if err := os.MkdirAll(filepath.Join(dir, "raw"), 0o755); err != nil {
+		t.Fatalf("mkdir raw: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "raw", "in.svg"), []byte("<svg/>") , 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	m, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+
+	step, ok := m.Meta.Render.Tools["resvg"]
+	if !ok {
+		t.Fatal("expected resvg tool after merge")
+	}
+	if got := step.Command; got != "custom-resvg {input} {output}" {
+		t.Fatalf("unexpected command: %q", got)
+	}
+	if len(step.Accepts) == 0 || len(step.Produces) == 0 {
+		t.Fatalf("expected accepts/produces inherited from built-in defaults, got %+v", step)
+	}
+}
+
 func TestValidate_StrictVsLooseLegalFields(t *testing.T) {
 	t.Parallel()
 
@@ -76,6 +170,48 @@ func TestValidate_RenderPipelineAndOutputControls(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
+	path := filepath.Join(dir, "assets.yaml")
+	data := `meta:
+  project: "test"
+  render:
+    defaults:
+      profile: "legacy"
+    profiles:
+      legacy:
+        pipeline:
+          - tool: "cp"
+            command: "cp {input} {output}"
+assets:
+  - id: "a"
+    source: "raw/in.txt"
+    outputs:
+      - path: "out/a.txt"
+        width: 1
+        height: 1
+        options:
+          scale_mode: "fit"
+          background: "transparent"
+          pipeline_append:
+            - tool: "cp"
+              command: "cp {input} {output}"
+`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	_, err := LoadFile(path)
+	if err == nil {
+		t.Fatal("expected decode error for legacy render keys")
+	}
+	if !strings.Contains(err.Error(), "field profile not found") && !strings.Contains(err.Error(), "field profiles not found") {
+		t.Fatalf("expected unknown legacy-field error, got %v", err)
+	}
+}
+
+func TestValidate_OptimizeByFormat(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
 	sourceRel := filepath.Join("raw", "in.txt")
 	sourceAbs := filepath.Join(dir, sourceRel)
 	if err := os.MkdirAll(filepath.Dir(sourceAbs), 0o755); err != nil {
@@ -89,11 +225,18 @@ func TestValidate_RenderPipelineAndOutputControls(t *testing.T) {
 		Meta: Meta{
 			Project: "test",
 			Render: RenderConfig{
-				Defaults: RenderDefaults{Profile: "missing"},
-				Profiles: map[string]RenderProfile{
-					"bad": {
-						Pipeline: []PipelineStep{{Stage: "transform", Command: "echo hi"}},
+				Defaults: RenderDefaults{Tools: []string{"oxipng"}},
+				Tools: map[string]PipelineStep{
+					"oxipng": {
+						Tool:     "oxipng",
+						Command:  "oxipng -o 3 --strip safe {output}",
+						Accepts:  []string{".png"},
+						Produces: []string{".png"},
 					},
+				},
+				OptimizeByFormat: map[string]string{
+					"png":  "oxipng",
+					".gif": "missing",
 				},
 			},
 		},
@@ -101,31 +244,24 @@ func TestValidate_RenderPipelineAndOutputControls(t *testing.T) {
 			ID:     "a",
 			Source: sourceRel,
 			Outputs: []Output{{
-				Path:   "out/a.txt",
+				Path:   "out/a.png",
 				Width:  1,
 				Height: 1,
 				Options: Options{
 					ScaleMode:  "fit",
 					Background: "transparent",
-					Profile:    "missing-profile",
-					PipelineAppend: []PipelineStep{{
-						Tool: "cp",
-					}},
 				},
 			}},
 		}},
 	}
 
-	errs := m.Validate(ValidationConfig{Strict: false, BaseDir: dir})
-	joined := joinErrs(errs)
+	errStr := joinErrs(m.Validate(ValidationConfig{Strict: false, BaseDir: dir}))
 	for _, want := range []string{
-		"meta.render.profiles[\"bad\"].pipeline[0]: tool is required",
-		"meta.render.defaults.profile \"missing\" does not exist",
-		"options.profile \"missing-profile\" does not exist",
-		"options.pipeline_append[0]: command is required",
+		"meta.render.optimize_by_format extension \"png\" must start with '.'",
+		"meta.render.optimize_by_format[\".gif\"] references unknown optimize tool \"missing\"",
 	} {
-		if !strings.Contains(joined, want) {
-			t.Fatalf("expected error containing %q, got: %s", want, joined)
+		if !strings.Contains(errStr, want) {
+			t.Fatalf("expected error containing %q, got: %s", want, errStr)
 		}
 	}
 }

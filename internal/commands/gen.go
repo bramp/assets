@@ -8,11 +8,13 @@ import (
 	"strings"
 
 	"github.com/bramp/assets/internal/manifest"
+	"github.com/bramp/assets/internal/render"
 )
 
 type outputRule struct {
 	Target string
 	Source string
+	Output manifest.Output
 }
 
 func RunGen(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -60,7 +62,11 @@ func renderMakefileFragment(m *manifest.Manifest) string {
 		b.WriteString(": ")
 		b.WriteString(r.Source)
 		b.WriteString("\n")
+		appendCommentedCommands(&b, m, r)
 	}
+
+	b.WriteString("\n")
+	b.WriteString("assets.lock: $(GENERATED_ASSET_FILES)\n")
 
 	return b.String()
 }
@@ -69,7 +75,7 @@ func collectOutputRules(m *manifest.Manifest) []outputRule {
 	rules := make([]outputRule, 0)
 	for _, a := range m.Assets {
 		for _, o := range a.Outputs {
-			rules = append(rules, outputRule{Target: o.Path, Source: a.Source})
+			rules = append(rules, outputRule{Target: o.Path, Source: a.Source, Output: o})
 		}
 	}
 
@@ -81,4 +87,100 @@ func collectOutputRules(m *manifest.Manifest) []outputRule {
 	})
 
 	return rules
+}
+
+func appendCommentedCommands(b *strings.Builder, m *manifest.Manifest, r outputRule) {
+	steps, err := render.ResolvePipelineWithOptions(m, r.Source, r.Output, render.ResolveOptions{CheckAvailability: false})
+	if err != nil {
+		// Keep unresolved notes as plain comments, not make recipes.
+		b.WriteString("  # unresolved: ")
+		b.WriteString(err.Error())
+		b.WriteString("\n")
+		return
+	}
+
+	commands := render.PlannedCommands(steps, render.BuildContext{
+		InputPath:  r.Source,
+		OutputPath: r.Target,
+		Width:      r.Output.Width,
+		Height:     r.Output.Height,
+		ScaleMode:  r.Output.Options.ScaleMode,
+		Background: r.Output.Options.Background,
+		TmpPath:    "__tmp1__",
+		Tmp2Path:   "__tmp2__",
+	})
+	for _, command := range commands {
+		appendWrappedCommentCommand(b, command)
+	}
+}
+
+func appendWrappedCommentCommand(b *strings.Builder, command string) {
+	// Use non-tab comment lines so make does not treat these as recipes.
+	parts, ops := splitCommandChain(command)
+	if len(parts) == 0 {
+		b.WriteString("  #\n")
+		return
+	}
+
+	b.WriteString("  # ")
+	b.WriteString(parts[0])
+	b.WriteString("\n")
+
+	for i, part := range parts[1:] {
+		op := "&&"
+		if i < len(ops) {
+			op = ops[i]
+		}
+		b.WriteString("  # ")
+		b.WriteString(op)
+		b.WriteString(" ")
+		b.WriteString(part)
+		b.WriteString("\n")
+	}
+}
+
+func splitCommandChain(command string) ([]string, []string) {
+	if command == "" {
+		return nil, nil
+	}
+
+	parts := make([]string, 0, 4)
+	ops := make([]string, 0, 3)
+	remaining := command
+
+	for {
+		idx, token := nextChainToken(remaining)
+		if idx < 0 {
+			parts = append(parts, strings.TrimSpace(remaining))
+			break
+		}
+
+		parts = append(parts, strings.TrimSpace(remaining[:idx]))
+		op := strings.TrimSpace(token)
+		op = strings.ReplaceAll(op, " ", "")
+		ops = append(ops, op)
+		remaining = remaining[idx+len(token):]
+	}
+
+	if len(parts) > 0 && parts[0] == "" {
+		parts[0] = command
+	}
+
+	return parts, ops
+}
+
+func nextChainToken(s string) (int, string) {
+	tokens := []string{" && ", " || ", " | "}
+	bestIdx := -1
+	bestToken := ""
+
+	for _, token := range tokens {
+		idx := strings.Index(s, token)
+		if idx >= 0 && (bestIdx == -1 || idx < bestIdx) {
+			bestIdx = idx
+			bestToken = token
+		}
+	}
+
+	return bestIdx, bestToken
 }

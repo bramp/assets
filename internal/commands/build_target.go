@@ -45,7 +45,7 @@ func RunBuildTarget(args []string, stderr io.Writer) int {
 		return 1
 	}
 
-	steps, err := render.ResolvePipeline(m, spec.Output)
+	steps, err := render.ResolvePipeline(m, spec.Asset.Source, spec.Output)
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "build: %v\n", err)
 		return 1

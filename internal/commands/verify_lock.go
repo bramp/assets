@@ -68,7 +68,7 @@ func RunVerifyLock(args []string, stderr io.Writer) int {
 				continue
 			}
 
-			steps, resolveErr := render.ResolvePipeline(m, out)
+			steps, resolveErr := render.ResolvePipeline(m, a.Source, out)
 			if resolveErr != nil {
 				errs = append(errs, fmt.Sprintf("asset %q output %q pipeline resolve failed: %v", a.ID, out.Path, resolveErr))
 				continue

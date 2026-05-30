@@ -35,7 +35,7 @@ This document provides a comprehensive blueprint for building a lightweight, met
  └──────┬───────┘    │  Validation  │    │ Make on      │
         │            └──────────────┘    │ Out-of-Date  │
         ▼                                └──────┬───────┘
- ┌──────────────┐                               │
+ ┌──────────────┐                               ▲
  │ Make Engine  ├───────────────────────────────┘
  └──────────────┘
 
@@ -47,58 +47,73 @@ This document provides a comprehensive blueprint for building a lightweight, met
 
 ### 3.1 The Asset Manifest (`assets.yaml`)
 
-The source of truth for the asset ecosystem. Outputs support arbitrary rendering options that are passed down to the underlying image processing engine.
+The source of truth for the asset ecosystem. The render configuration defines a graph of tool operations and minimal policy for picking the best path.
 
 ```yaml
 meta:
   project: "Core App"
   render:
     defaults:
-      profile: "balanced"
+      # Ordered preferences used to break shortest-path ties.
+      tools: ["resvg", "rsvg-convert", "inkscape", "vips-transform", "magick-transform", "vips-encode", "magick-encode", "oxipng", "gifsicle", "jpegoptim", "cwebp"]
       strict_renderer_versions: true
-    profiles:
-      balanced:
-        pipeline:
-          - stage: "rasterize"
-            tool: "resvg"
-            command: "resvg --dpi=96 {input} {tmp}"
-          - stage: "transform"
-            tool: "vips"
-            command: "vips resize {tmp} {tmp2} {scale}"
-          - stage: "encode"
-            tool: "vips"
-            command: "vips copy {tmp2} {output}"
-        format_options:
-          png_compression: 8
-          jpeg_quality: 88
-      quality:
-        pipeline:
-          - stage: "rasterize"
-            tool: "resvg"
-            command: "resvg --dpi=96 {input} {tmp}"
-          - stage: "transform"
-            tool: "vips"
-            command: "vips resize {tmp} {tmp2} {scale}"
-          - stage: "encode"
-            tool: "vips"
-            command: "vips copy {tmp2} {output}"
-        format_options:
-          png_compression: 9
-          jpeg_quality: 92
-      fast:
-        pipeline:
-          - stage: "rasterize"
-            tool: "librsvg"
-            command: "rsvg-convert -o {tmp} {input}"
-          - stage: "transform"
-            tool: "vips"
-            command: "vips resize {tmp} {tmp2} {scale}"
-          - stage: "encode"
-            tool: "vips"
-            command: "vips copy {tmp2} {output}"
-        format_options:
-          png_compression: 6
-          jpeg_quality: 82
+    tools:
+      resvg:
+        tool: "resvg"
+        accepts: [".svg"]
+        produces: [".png", ".webp", ".jpg", ".jpeg"]
+        scale_modes: ["fit"]
+        sets_size: "--width {width} --height {height}"
+        command: "resvg {sets_size} {input} {output}"
+      rsvg-convert:
+        tool: "rsvg-convert"
+        accepts: [".svg"]
+        produces: [".png"]
+        scale_modes: ["fit"]
+        command: "rsvg-convert -w {width} -h {height} -o {output} {input}"
+      inkscape:
+        tool: "inkscape"
+        accepts: [".svg", ".eps"]
+        produces: [".png"]
+        scale_modes: ["fit"]
+        command: "inkscape {input} --export-filename={output} --export-width={width} --export-height={height}"
+      vips-transform:
+        tool: "vips"
+        accepts: [".png", ".jpg", ".jpeg", ".webp", ".gif"]
+        produces: [".png", ".jpg", ".jpeg", ".webp", ".gif"]
+        scale_modes: ["fit", "fill", "stretch", "crop"]
+        command: "vips resize {input} {output} {scale}"
+      magick-transform:
+        tool: "magick"
+        accepts: ["*"]
+        produces: ["*"]
+        scale_modes: ["fit", "fill", "stretch", "crop"]
+        command: "magick {input} {resize_args} {output}"
+      vips-encode:
+        tool: "vips"
+        accepts: [".png", ".jpg", ".jpeg", ".webp"]
+        produces: [".png", ".jpg", ".jpeg", ".webp"]
+        command: "vips copy {input} {output}"
+      magick-encode:
+        tool: "magick"
+        accepts: ["*"]
+        produces: ["*"]
+        command: "magick {input} {output}"
+      oxipng:
+        tool: "oxipng"
+        accepts: [".png"]
+        produces: [".png"]
+        command: "oxipng -o 4 --strip safe {output}"
+      gifsicle:
+        tool: "gifsicle"
+        accepts: [".gif"]
+        produces: [".gif"]
+        command: "gifsicle -O3 -b {output}"
+      jpegoptim:
+        tool: "jpegoptim"
+        accepts: [".jpg", ".jpeg"]
+        produces: [".jpg", ".jpeg"]
+        command: "jpegoptim --strip-all {output}"
 
 assets:
   - id: "app_logo"
@@ -111,13 +126,10 @@ assets:
         width: 512
         height: 512
         options:
-          scale_mode: "fit"          # Options: fit, fill, stretch, crop
-          background: "transparent"  # Options: transparent, hex code (#FFFFFF)
-          profile: "quality"         # Optional: override default render profile
-          pipeline_append:
-            - stage: "postprocess"
-              tool: "oxipng"
-              command: "oxipng -o 4 --strip safe {output}"
+          # Per-output override may be scalar or list.
+          tools: ["inkscape", "resvg", "rsvg-convert", "magick-transform", "magick-encode"]
+          scale_mode: "fit"
+          background: "transparent"
           format_options:
             png_compression: 9
       - path: "assets/images/logo_128_ie.png"
@@ -142,31 +154,47 @@ assets:
 
 ```
 
-### 3.2 Rendering Tool Resolution
+### 3.2 Graph-Based Pipeline Planning
 
-The toolchain is policy-driven and resolved in this order:
+Pipeline construction is modeled as a shortest-path planning problem over a graph of operation candidates.
 
-1. Output-level override (`options.profile` and output `format_options`).
-2. Output-level pipeline controls (`options.pipeline_override`, else `options.pipeline_append`).
-3. Manifest defaults (`meta.render.defaults` and selected profile `pipeline`).
-4. Built-in application defaults when values are omitted.
+State model:
 
-The rendering pipeline is generic, ordered, and supports command chaining:
+1. Source extension and output extension.
+2. Target dimensions and per-output options.
 
-1. Any number of steps may be declared in order.
-2. Each step is executed exactly as listed after placeholder expansion.
-3. Recommended (but not strictly required) stage kinds are `rasterize`, `transform`, `encode`, and `postprocess`.
-4. Typical SVG flow is `rasterize -> transform -> encode`, optionally followed by `postprocess`.
-5. Typical bitmap flow may start at `transform` then `encode`.
+Operation model:
 
-Command-chain policy:
+1. Tool catalog entries (`meta.render.tools`) define graph edges.
+2. Each candidate declares `tool`, `command`, `accepts`, `produces`, and optional `scale_modes` constraints.
+3. Rasterize candidates may declare `sets_size` as a command-fragment template (for example `"--width {width} --height {height}"`) to indicate they can directly satisfy target dimensions.
+4. Commands may combine concerns (for example rasterize plus resize, or rasterize directly to final output format).
 
-1. Chains are declarative and ordered.
-2. Each step must declare `tool` and `command`; `stage` is recommended for validation/readability.
-3. Placeholders (for example `{input}`, `{tmp}`, `{output}`) are expanded by `assets`.
-4. Environment is constrained to deterministic defaults (for example locale, timezone, and fixed temp path conventions where practical).
+Planner policy (minimal and deterministic):
 
-This means SVG->PNG and SVG->JPEG should normally share early pipeline steps (for example rasterize/transform), while encode options differ by output format.
+1. Start from a stage graph implied by source and target format classes.
+2. Skip unnecessary stages when a prior stage already satisfies the goal (for example rasterizer has `sets_size` and supports requested `scale_mode`).
+3. Resolve the shortest compatible path from source format to target format.
+4. If a stage preference is set to `none/off`, that stage is disabled.
+5. If no valid path exists (for example no conversion-capable stages match source and target extensions), fail with a clear error.
+
+Resize intent semantics (`options.scale_mode`):
+
+1. `fit`: preserve aspect ratio and fit fully inside the target box.
+2. `fill`: preserve aspect ratio and cover the target box (cropping allowed).
+3. `stretch`: ignore aspect ratio and force exact dimensions.
+4. `crop`: preserve aspect ratio and crop to exact dimensions.
+
+Preference inputs:
+
+1. Defaults: `meta.render.defaults.tools` (string or list).
+2. Per-output overrides: `outputs[].options.tools` (string or list).
+3. Override and defaults use identical tie-break semantics for equal-length paths.
+
+Fallback behavior:
+
+1. If a preference item is `auto`, expand to defaults for that stage.
+2. Manual chains via `options.pipeline_override` remain supported and bypass planning.
 
 ### 3.3 The Lockfile (`assets.lock`)
 
@@ -255,20 +283,27 @@ Generates the Makefile dependency fragments based on the asset manifest definiti
 * Writes explicit target dependency blocks mapping every output path back to its source file.
 
 
+### 4.3 `assets defaults`
 
-### 4.3 `assets build --target <path>`
+Prints a recommended `meta.render` configuration snippet for use in `assets.yaml`.
+
+* **Actions:** Emits a copy/paste friendly YAML block to `stdout` that defines the tool graph catalog (`meta.render.tools`), per-tool format capabilities, and ordered defaults (`meta.render.defaults.tools`).
+* **Flags:** No stage/tool tuning flags; configuration is authored in `assets.yaml`.
+
+
+### 4.4 `assets build --target <path>`
 
 Executes the discrete rendering transformation for a *single* target asset path.
 
 * **Actions:**
 1. Opens `assets.yaml` and locates the specific output block matching the `--target` path string.
-2. Resolves the target's effective rendering configuration from output overrides, manifest defaults, and built-in defaults.
-3. Parses the target's parameters (`width`, `height`, `options`) plus selected render profile/tool settings.
-4. Executes the resolved pipeline steps in order:
+2. Resolves the target's effective rendering policy from output overrides, manifest defaults, and stage catalogs.
+3. Plans the shortest valid conversion path based on format constraints, vector/raster classification, and stage preferences.
+4. Executes planned steps in order:
   - Expand placeholders using the target context (`{input}`, `{tmp}`, `{tmp2}`, `{output}`, and derived values).
   - Run each step command with deterministic execution settings.
   - Ensure the pipeline writes the requested output path.
-5. Updates the target asset path entry inside `assets.lock` with the fresh `source_sha256`, recorded provenance, and final file size in bytes.
+5. Updates the target asset path entry inside `assets.lock` with the fresh `source_sha256`, recorded provenance (including chosen command chain), and final file size in bytes.
 
 
 

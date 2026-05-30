@@ -1,0 +1,68 @@
+# Suggested render defaults for assets.yaml
+# Copy this under meta.render in your manifest.
+# Graph tool preferences are order-based tie-breakers for shortest compatible paths.
+render:
+  defaults:
+    tools: ["resvg", "rsvg-convert", "inkscape", "vips-transform", "magick-transform", "vips-encode", "magick-encode", "oxipng", "gifsicle", "jpegoptim", "cwebp"]
+  tools:
+    resvg:
+      tool: "resvg"
+      accepts: [".svg"]
+      produces: [".png", ".webp", ".jpg", ".jpeg"]
+      scale_modes: ["fit"]
+      sets_size: "--width {width} --height {height}"
+      command: "resvg {sets_size} {input} {output}"
+    rsvg-convert:
+      tool: "rsvg-convert"
+      accepts: [".svg"]
+      produces: [".png"]
+      scale_modes: ["fit"]
+      command: "rsvg-convert -w {width} -h {height} -o {output} {input}"
+    inkscape:
+      tool: "inkscape"
+      accepts: [".svg", ".eps"]
+      produces: [".png"]
+      scale_modes: ["fit"]
+      command: "inkscape {input} --export-filename={output} --export-width={width} --export-height={height}"
+    vips-transform:
+      tool: "vips"
+      accepts: [".png", ".jpg", ".jpeg", ".webp", ".gif"]
+      produces: [".png", ".jpg", ".jpeg", ".webp", ".gif"]
+      scale_modes: ["fit", "fill", "stretch", "crop"]
+      command: "vips resize {input} {output} {scale}"
+    magick-transform:
+      tool: "magick"
+      accepts: ["*"]
+      produces: ["*"]
+      scale_modes: ["fit", "fill", "stretch", "crop"]
+      command: "magick {input} {resize_args} {output}"
+    vips-encode:
+      tool: "vips"
+      accepts: [".png", ".jpg", ".jpeg", ".webp"]
+      produces: [".png", ".jpg", ".jpeg", ".webp"]
+      command: "vips copy {input} {output}"
+    magick-encode:
+      tool: "magick"
+      accepts: ["*"]
+      produces: ["*"]
+      command: "magick {input} {output}"
+    oxipng:
+      tool: "oxipng"
+      accepts: [".png"]
+      produces: [".png"]
+      command: "oxipng -o 3 --strip safe {output}"
+    gifsicle:
+      tool: "gifsicle"
+      accepts: [".gif"]
+      produces: [".gif"]
+      command: "gifsicle -O3 -b {output}"
+    jpegoptim:
+      tool: "jpegoptim"
+      accepts: [".jpg", ".jpeg"]
+      produces: [".jpg", ".jpeg"]
+      command: "jpegoptim --strip-all {output}"
+    cwebp:
+      tool: "cwebp"
+      accepts: [".webp"]
+      produces: [".webp"]
+      command: "cwebp -quiet -q 82 {output} -o {output}"

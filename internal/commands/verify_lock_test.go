@@ -213,28 +213,27 @@ func writePipelineFixture(t *testing.T, dir string) string {
 		t.Fatalf("write source: %v", err)
 	}
 
-	manifest := `meta:
-  project: "test"
-  render:
-    defaults:
-      profile: "basic"
-    profiles:
-      basic:
-        pipeline:
-          - stage: "copy"
-            tool: "cp"
-            command: "cp {input} {output}"
-assets:
-  - id: "a"
-    source: "raw/in.txt"
-    outputs:
-      - path: "out/out.txt"
-        width: 1
-        height: 1
-        options:
-          scale_mode: "fit"
-          background: "transparent"
-`
+	manifest := "meta:\n" +
+		"  project: \"test\"\n" +
+		"  render:\n" +
+		"    defaults:\n" +
+		"      tools: [\"copy\"]\n" +
+		"    tools:\n" +
+		"      copy:\n" +
+		"        tool: \"cp\"\n" +
+		"        command: \"cp {input} {output}\"\n" +
+		"        accepts: [\".txt\"]\n" +
+		"        produces: [\".txt\"]\n" +
+		"assets:\n" +
+		"  - id: \"a\"\n" +
+		"    source: \"raw/in.txt\"\n" +
+		"    outputs:\n" +
+		"      - path: \"out/out.txt\"\n" +
+		"        width: 1\n" +
+		"        height: 1\n" +
+		"        options:\n" +
+		"          scale_mode: \"fit\"\n" +
+		"          background: \"transparent\"\n"
 	manifestPath := filepath.Join(dir, "assets.yaml")
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o644); err != nil {
 		t.Fatalf("write manifest: %v", err)

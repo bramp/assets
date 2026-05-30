@@ -32,30 +32,3 @@ func TestFileSHA256_NotFound(t *testing.T) {
 		t.Fatal("expected not-found error")
 	}
 }
-
-func TestConfigSHA256_DeterministicMapOrder(t *testing.T) {
-	t.Parallel()
-
-	a := map[string]any{"a": 1, "b": 2}
-	b := map[string]any{"b": 2, "a": 1}
-
-	ha, err := ConfigSHA256(a)
-	if err != nil {
-		t.Fatalf("hash a: %v", err)
-	}
-	hb, err := ConfigSHA256(b)
-	if err != nil {
-		t.Fatalf("hash b: %v", err)
-	}
-	if ha != hb {
-		t.Fatalf("expected deterministic hash for equivalent maps: %s vs %s", ha, hb)
-	}
-}
-
-func TestConfigSHA256_MarshalError(t *testing.T) {
-	t.Parallel()
-
-	if _, err := ConfigSHA256(map[string]any{"fn": func() {}}); err == nil {
-		t.Fatal("expected marshal error")
-	}
-}

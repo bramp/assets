@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -65,5 +66,159 @@ func TestRunGen_ArgErrors(t *testing.T) {
 	stderr.Reset()
 	if exit := RunGen([]string{"extra"}, &stdout, &stderr); exit != 1 {
 		t.Fatalf("expected positional argument error, got %d", exit)
+	}
+}
+
+func TestRunGen_CommentCommands(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	manifestPath := filepath.Join(dir, "assets.yaml")
+	manifestContent := `meta:
+  project: "test"
+  render:
+    defaults:
+      tools: ["raster", "opt"]
+    tools:
+      raster:
+        tool: "sh"
+        accepts: [".svg"]
+        produces: [".png"]
+        command: "cp {input} {output}"
+      opt:
+        tool: "sh"
+        accepts: [".png"]
+        produces: [".png"]
+        command: "cp {input} {output}"
+assets:
+  - id: "a"
+    source: "raw/in.svg"
+    outputs:
+      - path: "out/a.png"
+        width: 100
+        height: 100
+        options:
+          scale_mode: "fit"
+          background: "transparent"
+`
+	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := RunGen([]string{"--manifest", manifestPath}, &stdout, &stderr)
+	if exitCode != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", exitCode, stderr.String())
+	}
+
+	got := stdout.String()
+	for _, want := range []string{
+		"out/a.png: raw/in.svg",
+		"  # cp 'raw/in.svg' 'out/a.png'",
+		"assets.lock: $(GENERATED_ASSET_FILES)",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected generated output to contain %q, got:\n%s", want, got)
+		}
+	}
+}
+
+func TestRunGen_CommentCommandsSplitChains(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	manifestPath := filepath.Join(dir, "assets.yaml")
+	manifestContent := `meta:
+  project: "test"
+  render:
+    defaults:
+      tools: ["raster"]
+    tools:
+      raster:
+        tool: "sh"
+        accepts: [".svg"]
+        produces: [".png"]
+        command: "cp {input} {output} && : -resize {width}x{height}"
+assets:
+  - id: "a"
+    source: "raw/in.svg"
+    outputs:
+      - path: "out/a.png"
+        width: 100
+        height: 100
+        options:
+          scale_mode: "fit"
+          background: "transparent"
+`
+	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := RunGen([]string{"--manifest", manifestPath}, &stdout, &stderr)
+	if exitCode != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", exitCode, stderr.String())
+	}
+
+	got := stdout.String()
+	for _, want := range []string{
+		"  # cp 'raw/in.svg' 'out/a.png'",
+		"  # && : -resize 100x100",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected generated output to contain %q, got:\n%s", want, got)
+		}
+	}
+}
+
+func TestRunGen_CommentCommandsSplitPipesAndAnd(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	manifestPath := filepath.Join(dir, "assets.yaml")
+	manifestContent := `meta:
+  project: "test"
+  render:
+    defaults:
+      tools: ["pipe"]
+    tools:
+      pipe:
+        tool: "sh"
+        accepts: [".svg"]
+        produces: [".png"]
+        command: "cat {input} | cat > {output} && : done"
+assets:
+  - id: "a"
+    source: "raw/in.svg"
+    outputs:
+      - path: "out/a.png"
+        width: 100
+        height: 100
+        options:
+          scale_mode: "fit"
+          background: "transparent"
+`
+	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := RunGen([]string{"--manifest", manifestPath}, &stdout, &stderr)
+	if exitCode != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", exitCode, stderr.String())
+	}
+
+	got := stdout.String()
+	for _, want := range []string{
+		"  # cat 'raw/in.svg'",
+		"  # | cat > 'out/a.png'",
+		"  # && : done",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected generated output to contain %q, got:\n%s", want, got)
+		}
 	}
 }

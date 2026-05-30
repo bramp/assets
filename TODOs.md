@@ -44,8 +44,8 @@
   - [x] Ensure dimensions are positive integers.
   - [x] Validate scale_mode enum (fit, fill, stretch, crop).
   - [x] Validate background value (transparent or #RRGGBB).
-  - [x] Validate render profile pipeline step schema (`tool`, `command`, optional `stage`).
-  - [ ] Validate output pipeline controls (`pipeline_append`/`pipeline_override`) and placeholder usage.
+  - [x] Validate graph tool schema (`tool`, `command`, `accepts`, `produces`, optional `scale_modes` and `sets_size`).
+  - [x] Enforce graph-only manifest keys (legacy profile/stage/pipeline controls rejected by strict decode/validation).
 - [x] Implement assets check command:
   - [x] Human-readable errors to stderr.
   - [x] Exit 0 on success, 1 on failure.
@@ -68,7 +68,7 @@
   - [ ] Apply optional background flattening.
   - [ ] Apply output format/compression settings.
   - [x] Support deterministic command chaining/postprocess steps (for example PNG optimization).
-  - [x] Resolve effective ordered pipeline from profile + output controls.
+  - [x] Resolve effective ordered pipeline from graph tool preferences + compatibility constraints.
   - [x] Execute resolved pipeline with placeholder expansion (`{input}`, `{tmp}`, `{tmp2}`, `{output}`, derived values).
 - [x] Ensure target output directory exists before writing.
 - [x] Implement assets build --target <path> command.
@@ -118,10 +118,11 @@
 - [x] Add README with quickstart:
   - [x] Example assets.yaml.
   - [x] Example root Makefile wiring.
-  - [x] Command reference (check, gen, build, verify).
+  - [x] Command reference (check, gen, defaults, build, verify).
 - [x] Document failure modes and recovery flow (run make locally, commit updated assets + lockfile).
 - [x] Add release checklist for new image-option semantics.
 - [x] Add CI coverage upload and trend tracking with Codecov (OIDC).
+- [x] Add a complex end-to-end example directory demonstrating graph tools, fallback ordering, per-output overrides, and multi-format outputs.
 
 ## Phase 9: Optional Hardening
 
