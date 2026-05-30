@@ -1,0 +1,81 @@
+meta:
+  project: "Complex Example"
+  render:
+    defaults:
+      strict_renderer_versions: false
+
+assets:
+  - id: "logo_svg"
+    source: "raw/test_svg.svg"
+    owner: "Example Org"
+    copyright: "Copyright 2026 Example Org"
+    license: "Proprietary"
+    outputs:
+      - path: "out/images/logo_256.png"
+        width: 256
+        height: 256
+        options:
+          scale_mode: "fit"
+          background: "transparent"
+          tools: ["resvg", "rsvg-convert", "inkscape", "oxipng"]
+
+      - path: "out/images/logo_256.webp"
+        width: 256
+        height: 256
+        options:
+          scale_mode: "fit"
+          background: "#FFFFFF"
+
+      - path: "out/images/logo_512_fill.jpg"
+        width: 512
+        height: 512
+        options:
+          scale_mode: "fill"
+          background: "#FFFFFF"
+
+  - id: "hero_png"
+    source: "raw/test_png.png"
+    owner: "Example Org"
+    copyright: "Copyright 2026 Example Org"
+    license: "Proprietary"
+    outputs:
+      - path: "out/images/hero_1280_crop.webp"
+        width: 1280
+        height: 720
+        options:
+          scale_mode: "crop"
+          background: "#000000"
+
+      - path: "out/images/hero_1280.png"
+        width: 1280
+        height: 720
+        options:
+          scale_mode: "fit"
+          background: "transparent"
+
+  - id: "anim_gif"
+    source: "raw/test_gif.gif"
+    owner: "Example Org"
+    copyright: "Copyright 2026 Example Org"
+    license: "Proprietary"
+    outputs:
+      - path: "out/images/anim_optimized.gif"
+        width: 640
+        height: 360
+        options:
+          scale_mode: "fit"
+          background: "transparent"
+          tools: "gifsicle"
+
+  - id: "photo_jpg"
+    source: "raw/test_jpg.jpg"
+    owner: "Example Org"
+    copyright: "Copyright 2026 Example Org"
+    license: "Proprietary"
+    outputs:
+      - path: "out/images/photo_1024.jpg"
+        width: 1024
+        height: 768
+        options:
+          scale_mode: "fit"
+          background: "#FFFFFF"
