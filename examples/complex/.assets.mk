@@ -6,26 +6,26 @@ GENERATED_ASSET_FILES := out/images/anim_optimized.gif out/images/hero_1280.png 
 out/images/anim_optimized.gif: raw/test_gif.gif
   # gifsicle -O3 'raw/test_gif.gif' -o 'out/images/anim_optimized.gif'
 out/images/hero_1280.png: raw/test_png.png
-  # vips resize 'raw/test_png.png' '__tmp1__' 1
-  # oxipng -o 3 --strip safe --out 'out/images/hero_1280.png' '__tmp1__'
+  # vips resize 'raw/test_png.png' '__tmp1__.png' 1
+  # oxipng -o 3 --strip safe --out 'out/images/hero_1280.png' '__tmp1__.png'
 out/images/hero_1280_crop.webp: raw/test_png.png
-  # vips resize 'raw/test_png.png' '__tmp1__' 1
-  # cwebp -quiet -q 82 '__tmp1__' -o 'out/images/hero_1280_crop.webp'
+  # vips resize 'raw/test_png.png' '__tmp1__.webp' 1
+  # cwebp -quiet -q 82 '__tmp1__.webp' -o 'out/images/hero_1280_crop.webp'
 out/images/logo_256.png: raw/test_svg.svg
-  # resvg --width 256 --height 256 'raw/test_svg.svg' '__tmp1__'
-  # oxipng -o 3 --strip safe --out 'out/images/logo_256.png' '__tmp1__'
+  # resvg --width 256 --height 256 'raw/test_svg.svg' '__tmp1__.png'
+  # oxipng -o 3 --strip safe --out 'out/images/logo_256.png' '__tmp1__.png'
 out/images/logo_256.webp: raw/test_svg.svg
-  # resvg --width 256 --height 256 'raw/test_svg.svg' '__tmp1__'
-  # vips resize '__tmp1__' '__tmp2__' 1
-  # cwebp -quiet -q 82 '__tmp2__' -o 'out/images/logo_256.webp'
+  # inkscape 'raw/test_svg.svg' --export-filename='__tmp1__.png' --export-width=256 --export-height=256
+  # vips resize '__tmp1__.png' '__tmp2__.webp' 1
+  # cwebp -quiet -q 82 '__tmp2__.webp' -o 'out/images/logo_256.webp'
 out/images/logo_512_fill.jpg: raw/test_svg.svg
-  # resvg --width 512 --height 512 'raw/test_svg.svg' '__tmp1__'
-  # vips resize '__tmp1__' '__tmp2__' 1
-  # cp '__tmp2__' 'out/images/logo_512_fill.jpg'
+  # resvg --width 512 --height 512 'raw/test_svg.svg' '__tmp1__.png'
+  # vips resize '__tmp1__.png' '__tmp2__.jpg' 1
+  # cp '__tmp2__.jpg' 'out/images/logo_512_fill.jpg'
   # && jpegoptim --strip-all 'out/images/logo_512_fill.jpg'
 out/images/photo_1024.jpg: raw/test_jpg.jpg
-  # vips resize 'raw/test_jpg.jpg' '__tmp1__' 1
-  # cp '__tmp1__' 'out/images/photo_1024.jpg'
+  # vips resize 'raw/test_jpg.jpg' '__tmp1__.jpg' 1
+  # cp '__tmp1__.jpg' 'out/images/photo_1024.jpg'
   # && jpegoptim --strip-all 'out/images/photo_1024.jpg'
 
 assets.lock: $(GENERATED_ASSET_FILES)

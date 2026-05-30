@@ -286,8 +286,8 @@ func TestResolvePipeline_CommandChainTable(t *testing.T) {
 			manifest:          newManifest("sh", "cp"),
 			checkAvailability: true,
 			wantCommands: []string{
-				"rsvg 'from.svg' '/tmp/stage1.tmp' -w 100 -h 100",
-				"optipng '/tmp/stage1.tmp' -out 'to.png'",
+				"rsvg 'from.svg' '/tmp/stage1.raster' -w 100 -h 100",
+				"optipng '/tmp/stage1.raster' -out 'to.png'",
 			},
 		},
 		{
@@ -301,8 +301,8 @@ func TestResolvePipeline_CommandChainTable(t *testing.T) {
 			manifest:          newManifest("definitely-missing-binary", "cp"),
 			checkAvailability: false,
 			wantCommands: []string{
-				"rsvg 'from.svg' '/tmp/stage1.tmp' -w 100 -h 100",
-				"optipng '/tmp/stage1.tmp' -out 'to.png'",
+				"rsvg 'from.svg' '/tmp/stage1.raster' -w 100 -h 100",
+				"optipng '/tmp/stage1.raster' -out 'to.png'",
 			},
 		},
 		{
@@ -428,6 +428,51 @@ func TestResolvePipeline_DoesNotDuplicateTerminalOptimizer(t *testing.T) {
 	}
 	if len(steps) != 1 {
 		t.Fatalf("expected single optimizer step, got %+v", steps)
+	}
+}
+
+func TestPlannedCommands_UsesPerStepIntermediateExtensions(t *testing.T) {
+	t.Parallel()
+
+	steps := []manifest.PipelineStep{
+		{
+			Tool:     "inkscape",
+			Accepts:  []string{".svg"},
+			Produces: []string{".png"},
+			Command:  "inkscape {input} --export-filename={output}",
+		},
+		{
+			Tool:     "magick",
+			Accepts:  []string{".png"},
+			Produces: []string{".webp"},
+			Command:  "magick {input} {output}",
+		},
+		{
+			Tool:     "cwebp",
+			Accepts:  []string{".webp"},
+			Produces: []string{".webp"},
+			Command:  "cwebp -quiet {input} -o {output}",
+		},
+	}
+
+	commands := PlannedCommands(steps, BuildContext{
+		InputPath:  "from.svg",
+		OutputPath: "to.webp",
+		TmpPath:    "/tmp/stage1.tmp",
+		Tmp2Path:   "/tmp/stage2.tmp",
+	})
+
+	if len(commands) != 3 {
+		t.Fatalf("unexpected command count: %d", len(commands))
+	}
+	if !strings.Contains(commands[0], "'/tmp/stage1.png'") {
+		t.Fatalf("expected first step to write png temp file, got %q", commands[0])
+	}
+	if !strings.Contains(commands[1], "'/tmp/stage1.png'") || !strings.Contains(commands[1], "'/tmp/stage2.webp'") {
+		t.Fatalf("expected second step to read png temp and write webp temp, got %q", commands[1])
+	}
+	if !strings.Contains(commands[2], "'/tmp/stage2.webp'") {
+		t.Fatalf("expected final step to read webp temp file, got %q", commands[2])
 	}
 }
 

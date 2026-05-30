@@ -345,24 +345,25 @@ func ExecutePipelineWithHook(steps []manifest.PipelineStep, ctx BuildContext, on
 	}
 	defer os.RemoveAll(tmpDir)
 
-	stageExt := strings.ToLower(strings.TrimSpace(filepath.Ext(ctx.OutputPath)))
-	if stageExt == "" {
-		stageExt = ".tmp"
-	}
-	ctx.TmpPath = filepath.Join(tmpDir, "stage1"+stageExt)
-	ctx.Tmp2Path = filepath.Join(tmpDir, "stage2"+stageExt)
+	ctx.TmpPath = filepath.Join(tmpDir, "stage1")
+	ctx.Tmp2Path = filepath.Join(tmpDir, "stage2")
 	currentInput := ctx.InputPath
+	outputExt := strings.ToLower(strings.TrimSpace(filepath.Ext(ctx.OutputPath)))
 
 	for i, step := range steps {
 		stepCtx := ctx
 		stepCtx.InputPath = currentInput
+		var nextStep *manifest.PipelineStep
+		if i+1 < len(steps) {
+			nextStep = &steps[i+1]
+		}
 		if i == len(steps)-1 {
 			stepCtx.OutputPath = ctx.OutputPath
 		} else {
 			if i%2 == 0 {
-				stepCtx.OutputPath = ctx.TmpPath
+				stepCtx.OutputPath = stepTempPath(ctx.TmpPath, step, currentInput, outputExt, nextStep)
 			} else {
-				stepCtx.OutputPath = ctx.Tmp2Path
+				stepCtx.OutputPath = stepTempPath(ctx.Tmp2Path, step, currentInput, outputExt, nextStep)
 			}
 		}
 
@@ -392,16 +393,21 @@ func ExecutePipelineWithHook(steps []manifest.PipelineStep, ctx BuildContext, on
 func PlannedCommands(steps []manifest.PipelineStep, ctx BuildContext) []string {
 	commands := make([]string, 0, len(steps))
 	currentInput := ctx.InputPath
+	outputExt := strings.ToLower(strings.TrimSpace(filepath.Ext(ctx.OutputPath)))
 
 	for i, step := range steps {
 		stepCtx := ctx
 		stepCtx.InputPath = currentInput
+		var nextStep *manifest.PipelineStep
+		if i+1 < len(steps) {
+			nextStep = &steps[i+1]
+		}
 		if i == len(steps)-1 {
 			stepCtx.OutputPath = ctx.OutputPath
 		} else if i%2 == 0 {
-			stepCtx.OutputPath = ctx.TmpPath
+			stepCtx.OutputPath = stepTempPath(ctx.TmpPath, step, currentInput, outputExt, nextStep)
 		} else {
-			stepCtx.OutputPath = ctx.Tmp2Path
+			stepCtx.OutputPath = stepTempPath(ctx.Tmp2Path, step, currentInput, outputExt, nextStep)
 		}
 
 		commands = append(commands, expandStepCommand(step, stepCtx))
@@ -413,6 +419,50 @@ func PlannedCommands(steps []manifest.PipelineStep, ctx BuildContext) []string {
 
 func expand(s string, ctx BuildContext) string {
 	return expandWithSetSize(s, ctx, "")
+}
+
+func stepTempPath(basePath string, step manifest.PipelineStep, currentInput string, finalOutputExt string, nextStep *manifest.PipelineStep) string {
+	ext := stepOutputExt(step, currentInput, finalOutputExt, nextStep)
+	if ext == "" {
+		return basePath
+	}
+	return strings.TrimSuffix(basePath, filepath.Ext(basePath)) + ext
+}
+
+func stepOutputExt(step manifest.PipelineStep, currentInput string, finalOutputExt string, nextStep *manifest.PipelineStep) string {
+	produced := producedFormats(step.Produces, finalOutputExt)
+	if len(produced) == 0 {
+		return strings.ToLower(strings.TrimSpace(filepath.Ext(currentInput)))
+	}
+	if len(produced) == 1 {
+		return produced[0]
+	}
+
+	if nextStep != nil {
+		for _, ext := range produced {
+			if ext == finalOutputExt && matchesFormatList(nextStep.Accepts, ext) {
+				return ext
+			}
+		}
+		for _, ext := range produced {
+			if matchesFormatList(nextStep.Accepts, ext) {
+				return ext
+			}
+		}
+	}
+
+	inputExt := strings.ToLower(strings.TrimSpace(filepath.Ext(currentInput)))
+	for _, ext := range produced {
+		if ext == inputExt {
+			return ext
+		}
+	}
+	for _, ext := range produced {
+		if ext == finalOutputExt {
+			return ext
+		}
+	}
+	return produced[0]
 }
 
 func expandStepCommand(step manifest.PipelineStep, ctx BuildContext) string {
