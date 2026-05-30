@@ -331,6 +331,10 @@ func binaryAvailable(toolName string) bool {
 }
 
 func ExecutePipeline(steps []manifest.PipelineStep, ctx BuildContext) error {
+	return ExecutePipelineWithHook(steps, ctx, nil)
+}
+
+func ExecutePipelineWithHook(steps []manifest.PipelineStep, ctx BuildContext, onCommand func(string)) error {
 	if err := os.MkdirAll(filepath.Dir(ctx.OutputPath), 0o755); err != nil {
 		return err
 	}
@@ -363,6 +367,9 @@ func ExecutePipeline(steps []manifest.PipelineStep, ctx BuildContext) error {
 		}
 
 		cmdText := expandStepCommand(step, stepCtx)
+		if onCommand != nil {
+			onCommand(cmdText)
+		}
 		cmd := exec.Command("sh", "-c", cmdText)
 		cmd.Env = append(os.Environ(), "LC_ALL=C", "TZ=UTC")
 		out, runErr := cmd.CombinedOutput()

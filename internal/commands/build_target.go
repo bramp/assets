@@ -20,6 +20,7 @@ func RunBuildTarget(args []string, stderr io.Writer) int {
 	manifestPath := fs.String("manifest", "assets.yaml", "Path to assets manifest")
 	target := fs.String("target", "", "Target output path to build")
 	lockPath := fs.String("lock", "assets.lock", "Path to lockfile")
+	quiet := fs.Bool("quiet", false, "Suppress command output while building")
 
 	if err := fs.Parse(args); err != nil {
 		return 1
@@ -61,7 +62,14 @@ func RunBuildTarget(args []string, stderr io.Writer) int {
 		Background: spec.Output.Options.Background,
 	}
 
-	if err := render.ExecutePipeline(steps, ctx); err != nil {
+	onCommand := func(string) {}
+	if !*quiet {
+		onCommand = func(cmd string) {
+			_, _ = fmt.Fprintln(stderr, cmd)
+		}
+	}
+
+	if err := render.ExecutePipelineWithHook(steps, ctx, onCommand); err != nil {
 		_, _ = fmt.Fprintf(stderr, "build: %v\n", err)
 		return 1
 	}

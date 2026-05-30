@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -91,6 +92,76 @@ func TestRunBuildTarget_Success(t *testing.T) {
 	if _, hasConfigHash := oData["config_hash"]; hasConfigHash {
 		t.Fatalf("did not expect config_hash in lockfile output: %s", string(lockBytes))
 	}
+}
+
+func TestRunBuildTarget_CommandOutputVerbosity(t *testing.T) {
+	t.Parallel()
+
+	newManifestPath := func(t *testing.T, dir string) string {
+		t.Helper()
+		src := filepath.Join(dir, "raw", "in.txt")
+		if err := os.MkdirAll(filepath.Dir(src), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		if err := os.WriteFile(src, []byte("hello\n"), 0o644); err != nil {
+			t.Fatalf("write source: %v", err)
+		}
+
+		manifest := "meta:\n" +
+			"  project: \"test\"\n" +
+			"  render:\n" +
+			"    defaults:\n" +
+			"      tools: [\"copy\"]\n" +
+			"    tools:\n" +
+			"      copy:\n" +
+			"        tool: \"cp\"\n" +
+			"        command: \"cp {input} {output}\"\n" +
+			"        accepts: [\".txt\"]\n" +
+			"        produces: [\".txt\"]\n" +
+			"assets:\n" +
+			"  - id: \"a\"\n" +
+			"    source: \"raw/in.txt\"\n" +
+			"    outputs:\n" +
+			"      - path: \"out/out.txt\"\n" +
+			"        width: 1\n" +
+			"        height: 1\n" +
+			"        options:\n" +
+			"          scale_mode: \"fit\"\n" +
+			"          background: \"transparent\"\n"
+		manifestPath := filepath.Join(dir, "assets.yaml")
+		if err := os.WriteFile(manifestPath, []byte(manifest), 0o644); err != nil {
+			t.Fatalf("write manifest: %v", err)
+		}
+		return manifestPath
+	}
+
+	t.Run("default prints commands", func(t *testing.T) {
+		dir := t.TempDir()
+		manifestPath := newManifestPath(t, dir)
+
+		var stderr bytes.Buffer
+		exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr)
+		if exit != 0 {
+			t.Fatalf("expected exit 0, got %d, stderr=%q", exit, stderr.String())
+		}
+		if !strings.Contains(stderr.String(), "cp '") {
+			t.Fatalf("expected command output in stderr, got %q", stderr.String())
+		}
+	})
+
+	t.Run("quiet suppresses command output", func(t *testing.T) {
+		dir := t.TempDir()
+		manifestPath := newManifestPath(t, dir)
+
+		var stderr bytes.Buffer
+		exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt", "--quiet"}, &stderr)
+		if exit != 0 {
+			t.Fatalf("expected exit 0, got %d, stderr=%q", exit, stderr.String())
+		}
+		if strings.Contains(stderr.String(), "cp '") {
+			t.Fatalf("expected quiet mode to suppress command output, got %q", stderr.String())
+		}
+	})
 }
 
 func TestRunBuildTarget_TargetNotFound(t *testing.T) {
