@@ -353,6 +353,9 @@ func ExecutePipelineWithHook(steps []manifest.PipelineStep, ctx BuildContext, on
 	for i, step := range steps {
 		stepCtx := ctx
 		stepCtx.InputPath = currentInput
+		if err := ensureFileExistsAndNonEmpty(stepCtx.InputPath); err != nil {
+			return fmt.Errorf("pipeline step %q input %q invalid: %w", step.Tool, stepCtx.InputPath, err)
+		}
 		var nextStep *manifest.PipelineStep
 		if i+1 < len(steps) {
 			nextStep = &steps[i+1]
@@ -377,13 +380,28 @@ func ExecutePipelineWithHook(steps []manifest.PipelineStep, ctx BuildContext, on
 		if runErr != nil {
 			return fmt.Errorf("pipeline step %q failed: %w (output: %s)", step.Tool, runErr, strings.TrimSpace(string(out)))
 		}
+		if err := ensureFileExistsAndNonEmpty(stepCtx.OutputPath); err != nil {
+			return fmt.Errorf("pipeline step %q did not produce output %q: %w", step.Tool, stepCtx.OutputPath, err)
+		}
 		currentInput = stepCtx.OutputPath
 	}
 
-	if _, err := os.Stat(ctx.OutputPath); err != nil {
+	if err := ensureFileExistsAndNonEmpty(ctx.OutputPath); err != nil {
 		return fmt.Errorf("pipeline did not produce output %q: %w", ctx.OutputPath, err)
 	}
 
+	return nil
+}
+
+func ensureFileExistsAndNonEmpty(path string) error {
+	st, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if st.Size() <= 0 {
+		return fmt.Errorf("size must be > 0 bytes")
+	}
+	// TODO(bramp): Validate file content against expected media format after each step.
 	return nil
 }
 

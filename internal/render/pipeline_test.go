@@ -208,6 +208,24 @@ func TestExecutePipeline_FailureAndMissingOutput(t *testing.T) {
 			t.Fatalf("expected missing output error, got %v", err)
 		}
 	})
+
+	t.Run("missing input", func(t *testing.T) {
+		ctx := BuildContext{InputPath: filepath.Join(dir, "does-not-exist.txt"), OutputPath: filepath.Join(dir, "out-missing-input.txt")}
+		steps := []manifest.PipelineStep{{Tool: "cp", Command: "cp {input} {output}"}}
+		err := ExecutePipeline(steps, ctx)
+		if err == nil || !strings.Contains(err.Error(), "input") {
+			t.Fatalf("expected input validation error, got %v", err)
+		}
+	})
+
+	t.Run("empty output rejected", func(t *testing.T) {
+		ctx := BuildContext{InputPath: input, OutputPath: filepath.Join(dir, "out-empty.txt")}
+		steps := []manifest.PipelineStep{{Tool: "sh", Command: ": > {output}"}}
+		err := ExecutePipeline(steps, ctx)
+		if err == nil || !strings.Contains(err.Error(), "size must be > 0 bytes") {
+			t.Fatalf("expected non-empty output validation error, got %v", err)
+		}
+	})
 }
 
 func TestExpandAndShellQuote(t *testing.T) {

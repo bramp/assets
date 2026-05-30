@@ -15,7 +15,7 @@ out/images/logo_256.png: raw/test_svg.svg
   # resvg --width 256 --height 256 'raw/test_svg.svg' '__tmp1__.png'
   # oxipng -o 3 --strip safe --out 'out/images/logo_256.png' '__tmp1__.png'
 out/images/logo_256.webp: raw/test_svg.svg
-  # inkscape 'raw/test_svg.svg' --export-filename='__tmp1__.png' --export-width=256 --export-height=256
+  # resvg --width 256 --height 256 'raw/test_svg.svg' '__tmp1__.png'
   # vips resize '__tmp1__.png' '__tmp2__.webp' 1
   # cwebp -quiet -q 82 '__tmp2__.webp' -o 'out/images/logo_256.webp'
 out/images/logo_512_fill.jpg: raw/test_svg.svg
