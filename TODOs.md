@@ -44,7 +44,7 @@
   - [x] Ensure dimensions are positive integers.
   - [x] Validate scale_mode enum (fit, fill, stretch, crop).
   - [x] Validate background value (transparent or #RRGGBB).
-  - [x] Validate graph tool schema (`tool`, `command`, `accepts`, `produces`, optional `scale_modes` and `sets_size`).
+  - [x] Validate graph tool schema (`tool`, `command`, `accepts`, `produces`, optional `scale_modes`, `size_template`, and `size_by_mode`).
   - [x] Enforce graph-only manifest keys (legacy profile/stage/pipeline controls rejected by strict decode/validation).
 - [x] Implement assets check command:
   - [x] Human-readable errors to stderr.

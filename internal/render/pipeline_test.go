@@ -274,14 +274,32 @@ func TestExpandAndShellQuote(t *testing.T) {
 	}
 
 	step := manifest.PipelineStep{
-		Command:  "resvg {sets_size} {input} {output}",
-		SetsSize: "-w {width} -h {height}",
+		Command:      "resvg {size} {input} {output}",
+		SizeTemplate: "-w {width} -h {height}",
 	}
 	gotStepCmd := expandStepCommand(step, ctx)
 	for _, want := range []string{"-w 10", "-h 20", `'/tmp/in '\''quote'\''.txt'`, "'/tmp/out.txt'"} {
 		if !strings.Contains(gotStepCmd, want) {
 			t.Fatalf("expected expanded step command to contain %q, got %q", want, gotStepCmd)
 		}
+	}
+
+	modeStep := manifest.PipelineStep{
+		Command: "magick {size} {input} {output}",
+		SizeByMode: map[string]string{
+			"fill":    "-resize {width}x{height}^",
+			"stretch": "-resize {width}x{height}!",
+		},
+	}
+	gotModeCmd := expandStepCommand(modeStep, BuildContext{
+		InputPath:  ctx.InputPath,
+		OutputPath: ctx.OutputPath,
+		Width:      10,
+		Height:     20,
+		ScaleMode:  "fill",
+	})
+	if !strings.Contains(gotModeCmd, "-resize 10x20^") {
+		t.Fatalf("expected mode-specific size template to be expanded, got %q", gotModeCmd)
 	}
 }
 
@@ -296,10 +314,11 @@ func TestResolvePipeline_CommandChainTable(t *testing.T) {
 					Defaults: manifest.RenderDefaults{Tools: manifest.ToolPreference{"rsvg", "optipng"}},
 					Tools: map[string]manifest.PipelineStep{
 						"rsvg": {
-							Tool:     rasterTool,
-							Accepts:  []string{".svg"},
-							Produces: []string{".raster"},
-							Command:  "rsvg {input} {output} -w {width} -h {height}",
+							Tool:         rasterTool,
+							Accepts:      []string{".svg"},
+							Produces:     []string{".raster"},
+							SizeTemplate: "-w {width} -h {height}",
+							Command:      "rsvg {input} {size} {output}",
 						},
 						"optipng": {
 							Tool:     optimizeTool,
@@ -325,7 +344,7 @@ func TestResolvePipeline_CommandChainTable(t *testing.T) {
 			manifest:          newManifest("sh", "cp"),
 			checkAvailability: true,
 			wantCommands: []string{
-				"rsvg 'from.svg' '/tmp/stage1.raster' -w 100 -h 100",
+				"rsvg 'from.svg' -w 100 -h 100 '/tmp/stage1.raster'",
 				"optipng '/tmp/stage1.raster' -out 'to.png'",
 			},
 		},
@@ -340,7 +359,7 @@ func TestResolvePipeline_CommandChainTable(t *testing.T) {
 			manifest:          newManifest("definitely-missing-binary", "cp"),
 			checkAvailability: false,
 			wantCommands: []string{
-				"rsvg 'from.svg' '/tmp/stage1.raster' -w 100 -h 100",
+				"rsvg 'from.svg' -w 100 -h 100 '/tmp/stage1.raster'",
 				"optipng '/tmp/stage1.raster' -out 'to.png'",
 			},
 		},
@@ -421,10 +440,11 @@ func TestResolvePipeline_AppendsConfiguredTerminalOptimizer(t *testing.T) {
 				},
 				Tools: map[string]manifest.PipelineStep{
 					"resvg": {
-						Tool:     "resvg",
-						Accepts:  []string{".svg"},
-						Produces: []string{".png"},
-						Command:  "resvg {input} {output}",
+						Tool:         "resvg",
+						Accepts:      []string{".svg"},
+						Produces:     []string{".png"},
+						SizeTemplate: "--width {width} --height {height}",
+						Command:      "resvg {size} {input} {output}",
 					},
 					"oxipng": {
 						Tool:     "oxipng",

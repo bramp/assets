@@ -118,7 +118,8 @@ Graph tool selection is composable:
 - Global defaults: set ordered tool preference list in `meta.render.defaults.tools`.
 - Per output: override with `outputs[].options.tools` as either a string or list.
 - Tool compatibility metadata: set `accepts` and `produces` per tool entry so the resolver can find the shortest valid conversion path.
-- Size capability metadata: set `sets_size` to a command fragment template (for example `"--width {width} --height {height}"`) so tools can optionally honor target width/height.
+- Size capability metadata: use `{size}` in `command`, set `size_template` for the default size fragment, and optionally set `size_by_mode` for per-`scale_mode` overrides.
+- Size fragment resolution order: `size_by_mode[<requested scale_mode>]`, then `size_by_mode["*"]`, then `size_template`.
 - Mode capability metadata: set `scale_modes` per tool entry so the resolver can require aspect-ratio behavior compatibility.
 - Selection behavior: shortest valid path wins; preference order breaks ties.
 
@@ -141,8 +142,8 @@ meta:
         accepts: [".svg"]
         produces: [".png", ".webp", ".jpg", ".jpeg"]
         scale_modes: ["fit"]
-        sets_size: "--width {width} --height {height}"
-        command: "resvg {sets_size} {input} {output}"
+        size_template: "--width {width} --height {height}"
+        command: "resvg {size} {input} {output}"
       rsvg-convert:
         tool: "rsvg-convert"
         accepts: [".svg"]
@@ -166,7 +167,12 @@ meta:
         accepts: ["*"]
         produces: ["*"]
         scale_modes: ["fit", "fill", "stretch", "crop"]
-        command: "magick {input} {resize_args} {output}"
+        size_template: "-resize {width}x{height} -background {background} -gravity center -extent {width}x{height}"
+        size_by_mode:
+          fill: "-resize {width}x{height}^ -gravity center -extent {width}x{height}"
+          stretch: "-resize {width}x{height}!"
+          crop: "-resize {width}x{height}^ -gravity center -extent {width}x{height}"
+        command: "magick {input} {size} {output}"
       vips-encode:
         tool: "vips"
         accepts: [".png", ".jpg", ".jpeg", ".webp"]

@@ -27,7 +27,7 @@ func ExecutePipelineWithHook(steps []manifest.PipelineStep, ctx BuildContext, on
 	if err != nil {
 		return err
 	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
+	defer os.RemoveAll(tmpDir)
 
 	ctx.TmpPath = filepath.Join(tmpDir, "stage1")
 	ctx.Tmp2Path = filepath.Join(tmpDir, "stage2")

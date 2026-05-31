@@ -1,7 +1,6 @@
 package render
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -13,12 +12,10 @@ func expand(s string, ctx BuildContext) string {
 }
 
 // expandStepCommand expands a pipeline step using the same placeholder rules
-// as execution, including any step-specific {sets_size} expansion.
+// as execution, including tool-specific {size} expansion.
 func expandStepCommand(step manifest.PipelineStep, ctx BuildContext) string {
-	command := step.Command
-	if strings.TrimSpace(step.SetsSize) != "" {
-		command = strings.ReplaceAll(command, "{sets_size}", expandTemplate(step.SetsSize, ctx))
-	}
+	size := expandTemplate(stepSizeTemplate(step, ctx.ScaleMode), ctx)
+	command := strings.ReplaceAll(step.Command, "{size}", size)
 	return expandTemplate(command, ctx)
 }
 
@@ -34,7 +31,6 @@ func expandTemplate(s string, ctx BuildContext) string {
 		"{height}", height,
 		"{scale_mode}", shellQuote(ctx.ScaleMode),
 		"{background}", shellQuote(ctx.Background),
-		"{resize_args}", resizeArgs(ctx, width, height),
 		"{scale}", "1",
 	)
 	return replacer.Replace(s)
@@ -44,29 +40,15 @@ func sizeStrings(ctx BuildContext) (string, string) {
 	return strconv.Itoa(ctx.Width), strconv.Itoa(ctx.Height)
 }
 
-func resizeArgs(ctx BuildContext, width string, height string) string {
-	bg := ctx.Background
-	if strings.TrimSpace(bg) == "" {
-		bg = defaultBackgroundColor
+func stepSizeTemplate(step manifest.PipelineStep, scaleMode string) string {
+	mode := strings.ToLower(strings.TrimSpace(scaleMode))
+	if tmpl, ok := step.SizeByMode[mode]; ok && strings.TrimSpace(tmpl) != "" {
+		return tmpl
 	}
-
-	switch strings.ToLower(strings.TrimSpace(ctx.ScaleMode)) {
-	case "fill", "crop":
-		return fmt.Sprintf("-resize %sx%s^ -gravity center -extent %sx%s", width, height, width, height)
-	case "stretch":
-		return fmt.Sprintf("-resize %sx%s!", width, height)
-	case scaleModeFit, "":
-		fallthrough
-	default:
-		return fmt.Sprintf(
-			"-resize %sx%s -background %s -gravity center -extent %sx%s",
-			width,
-			height,
-			shellQuote(bg),
-			width,
-			height,
-		)
+	if tmpl, ok := step.SizeByMode["*"]; ok && strings.TrimSpace(tmpl) != "" {
+		return tmpl
 	}
+	return step.SizeTemplate
 }
 
 // shellQuote wraps a string for safe shell embedding in the generated command

@@ -126,17 +126,7 @@ func validateStageRegistry(prefix string, registry map[string]PipelineStep) []er
 		if strings.TrimSpace(step.Command) == "" {
 			errs = append(errs, fmt.Errorf("%s[%q]: command is required", prefix, name))
 		}
-		if strings.TrimSpace(step.SetsSize) != "" && !strings.Contains(step.Command, "{sets_size}") &&
-			!commandUsesTargetSizePlaceholders(step.Command) {
-			errs = append(
-				errs,
-				fmt.Errorf(
-					"%s[%q]: sets_size is configured but command does not use {sets_size} or width/height placeholders",
-					prefix,
-					name,
-				),
-			)
-		}
+		errs = append(errs, validatePipelineStepSize(prefix, name, step)...)
 		errs = append(errs, validatePipelineStepSupports(fmt.Sprintf("%s[%q]", prefix, name), step)...)
 		errs = append(errs, validatePipelineStepScaleModes(fmt.Sprintf("%s[%q]", prefix, name), step)...)
 	}
@@ -158,6 +148,53 @@ func validateToolRegistry(prefix string, registry map[string]PipelineStep) []err
 	return errs
 }
 
-func commandUsesTargetSizePlaceholders(cmd string) bool {
-	return strings.Contains(cmd, "{width}") || strings.Contains(cmd, "{height}")
+func validatePipelineStepSize(prefix, name string, step PipelineStep) []error {
+	var errs []error
+	hasSizeConfig := strings.TrimSpace(step.SizeTemplate) != "" || len(step.SizeByMode) > 0
+	hasSizePlaceholder := strings.Contains(step.Command, "{size}")
+
+	if hasSizeConfig && !hasSizePlaceholder {
+		errs = append(
+			errs,
+			fmt.Errorf(
+				"%s[%q]: size_template or size_by_mode is configured but command does not use {size}",
+				prefix,
+				name,
+			),
+		)
+	}
+	if hasSizePlaceholder && !hasSizeConfig {
+		errs = append(
+			errs,
+			fmt.Errorf(
+				"%s[%q]: command uses {size} but no size_template or size_by_mode is configured",
+				prefix,
+				name,
+			),
+		)
+	}
+
+	for mode, tmpl := range step.SizeByMode {
+		normMode := strings.TrimSpace(mode)
+		if normMode == "" {
+			errs = append(errs, fmt.Errorf("%s[%q]: size_by_mode contains an empty scale mode key", prefix, name))
+			continue
+		}
+		if normMode != "*" && !validScaleModeValue(normMode) {
+			errs = append(
+				errs,
+				fmt.Errorf(
+					"%s[%q]: size_by_mode[%q] must be '*' or one of fit, fill, stretch, crop",
+					prefix,
+					name,
+					mode,
+				),
+			)
+		}
+		if strings.TrimSpace(tmpl) == "" {
+			errs = append(errs, fmt.Errorf("%s[%q]: size_by_mode[%q] must not be empty", prefix, name, mode))
+		}
+	}
+
+	return errs
 }

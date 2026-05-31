@@ -114,7 +114,11 @@ type PipelineStep struct {
 	Accepts    []string `yaml:"accepts"`
 	Produces   []string `yaml:"produces"`
 	ScaleModes []string `yaml:"scale_modes"`
-	SetsSize   string   `yaml:"sets_size"`
+	// SizeTemplate is the default fragment expanded into {size}.
+	SizeTemplate string `yaml:"size_template"`
+	// SizeByMode overrides SizeTemplate by requested scale mode; "*" is a
+	// wildcard fallback used when the requested mode has no direct entry.
+	SizeByMode map[string]string `yaml:"size_by_mode"`
 }
 
 // ValidationConfig controls strictness and filesystem context for validation.

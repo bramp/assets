@@ -7,7 +7,7 @@ This example demonstrates a graph-first render configuration with:
 - Built-in renderer defaults (no explicit `meta.render.tools` block), with a couple of per-output override examples (string and list forms)
 - Scale-mode-aware tool selection
 - Optimizer-only outputs (`png -> png`, `gif -> gif`, `jpg -> jpg`, `webp -> webp`)
-- Command placeholders (`{input}`, `{tmp}`, `{tmp2}`, `{output}`, `{width}`, `{height}`, `{sets_size}`, `{resize_args}`)
+- Command placeholders (`{input}`, `{tmp}`, `{tmp2}`, `{output}`, `{width}`, `{height}`, `{size}`)
 
 ## Layout
 

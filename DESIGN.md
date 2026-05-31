@@ -63,8 +63,8 @@ meta:
         accepts: [".svg"]
         produces: [".png", ".webp", ".jpg", ".jpeg"]
         scale_modes: ["fit"]
-        sets_size: "--width {width} --height {height}"
-        command: "resvg {sets_size} {input} {output}"
+        size_template: "--width {width} --height {height}"
+        command: "resvg {size} {input} {output}"
       rsvg-convert:
         tool: "rsvg-convert"
         accepts: [".svg"]
@@ -88,7 +88,12 @@ meta:
         accepts: ["*"]
         produces: ["*"]
         scale_modes: ["fit", "fill", "stretch", "crop"]
-        command: "magick {input} {resize_args} {output}"
+        size_template: "-resize {width}x{height} -background {background} -gravity center -extent {width}x{height}"
+        size_by_mode:
+          fill: "-resize {width}x{height}^ -gravity center -extent {width}x{height}"
+          stretch: "-resize {width}x{height}!"
+          crop: "-resize {width}x{height}^ -gravity center -extent {width}x{height}"
+        command: "magick {input} {size} {output}"
       vips-encode:
         tool: "vips"
         accepts: [".png", ".jpg", ".jpeg", ".webp"]
@@ -165,13 +170,14 @@ Operation model:
 
 1. Tool catalog entries (`meta.render.tools`) define graph edges.
 2. Each candidate declares `tool`, `command`, `accepts`, `produces`, and optional `scale_modes` constraints.
-3. Rasterize candidates may declare `sets_size` as a command-fragment template (for example `"--width {width} --height {height}"`) to indicate they can directly satisfy target dimensions.
-4. Commands may combine concerns (for example rasterize plus resize, or rasterize directly to final output format).
+3. Rasterize candidates may declare `size_template` as a command-fragment template (for example `"--width {width} --height {height}"`) and optionally `size_by_mode` for mode-specific fragments.
+4. Size fragment resolution order is deterministic: `size_by_mode[requested_scale_mode]`, then `size_by_mode["*"]`, then `size_template`.
+5. Commands may combine concerns (for example rasterize plus resize, or rasterize directly to final output format).
 
 Planner policy (minimal and deterministic):
 
 1. Start from a stage graph implied by source and target format classes.
-2. Skip unnecessary stages when a prior stage already satisfies the goal (for example rasterizer has `sets_size` and supports requested `scale_mode`).
+2. Skip unnecessary stages when a prior stage already satisfies the goal (for example rasterizer has `size_template` and supports requested `scale_mode`).
 3. Resolve the shortest compatible path from source format to target format.
 4. If a stage preference is set to `none/off`, that stage is disabled.
 5. If no valid path exists (for example no conversion-capable stages match source and target extensions), fail with a clear error.

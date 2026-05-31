@@ -16,8 +16,8 @@ render:
       accepts: [".svg"]
       produces: [".png"]
       scale_modes: ["fit"]
-      sets_size: "--width {width} --height {height}"
-      command: "resvg {sets_size} {input} {output}"
+      size_template: "--width {width} --height {height}"
+      command: "resvg {size} {input} {output}"
     rsvg-convert:
       tool: "rsvg-convert"
       accepts: [".svg"]
@@ -44,7 +44,12 @@ render:
       accepts: [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"]
       produces: [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"]
       scale_modes: ["fit", "fill", "stretch", "crop"]
-      command: "magick {input} {resize_args} {output}"
+      size_template: "-resize {width}x{height} -background {background} -gravity center -extent {width}x{height}"
+      size_by_mode:
+        fill: "-resize {width}x{height}^ -gravity center -extent {width}x{height}"
+        stretch: "-resize {width}x{height}!"
+        crop: "-resize {width}x{height}^ -gravity center -extent {width}x{height}"
+      command: "magick {input} {size} {output}"
     vips-encode:
       tool: "vips"
       accepts: [".png", ".jpg", ".jpeg", ".webp"]
