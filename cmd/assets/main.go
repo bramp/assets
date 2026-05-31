@@ -9,30 +9,34 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		printUsage(os.Stderr)
-		os.Exit(1)
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+func run(args []string, stdout, stderr io.Writer) int {
+	if len(args) < 1 {
+		printUsage(stderr)
+		return 1
 	}
 
 	var exitCode int
-	switch os.Args[1] {
+	switch args[0] {
 	case "check":
-		exitCode = commands.RunCheck(os.Args[2:], os.Stderr)
+		exitCode = commands.RunCheck(args[1:], stderr)
 	case "gen":
-		exitCode = commands.RunGen(os.Args[2:], os.Stdout, os.Stderr)
+		exitCode = commands.RunGen(args[1:], stdout, stderr)
 	case "defaults":
-		exitCode = commands.RunDefaults(os.Args[2:], os.Stdout, os.Stderr)
+		exitCode = commands.RunDefaults(args[1:], stdout, stderr)
 	case "build":
-		exitCode = commands.RunBuildTarget(os.Args[2:], os.Stderr)
+		exitCode = commands.RunBuildTarget(args[1:], stderr)
 	case "verify":
-		exitCode = commands.RunVerifyLock(os.Args[2:], os.Stderr)
+		exitCode = commands.RunVerifyLock(args[1:], stderr)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n", os.Args[1])
-		printUsage(os.Stderr)
+		_, _ = fmt.Fprintf(stderr, "unknown command: %s\n\n", args[0])
+		printUsage(stderr)
 		exitCode = 1
 	}
 
-	os.Exit(exitCode)
+	return exitCode
 }
 
 func printUsage(stderr io.Writer) {

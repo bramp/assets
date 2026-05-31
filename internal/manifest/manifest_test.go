@@ -8,6 +8,49 @@ import (
 	"testing"
 )
 
+func TestLoad_FromReader(t *testing.T) {
+	t.Parallel()
+
+	data := `meta:
+  project: "x"
+assets:
+  - id: "a"
+    source: "raw/in.svg"
+    outputs:
+      - path: "out/a.png"
+        width: 1
+        height: 1
+        options:
+          scale_mode: "fit"
+          background: "transparent"
+`
+
+	m, err := Load(strings.NewReader(data))
+	if err != nil {
+		t.Fatalf("load manifest from reader: %v", err)
+	}
+	if got := m.Meta.Project; got != "x" {
+		t.Fatalf("unexpected project: %q", got)
+	}
+	if len(m.Assets) != 1 {
+		t.Fatalf("expected one asset, got %d", len(m.Assets))
+	}
+}
+
+func TestLoad_UnknownFieldFromReader(t *testing.T) {
+	t.Parallel()
+
+	data := `meta:
+  project: "x"
+  unknown_field: true
+assets: []
+`
+
+	if _, err := Load(strings.NewReader(data)); err == nil {
+		t.Fatal("expected unknown-field parse error")
+	}
+}
+
 func TestLoadFile_UnknownField(t *testing.T) {
 	t.Parallel()
 
