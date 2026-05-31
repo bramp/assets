@@ -75,31 +75,26 @@ func (s *Session) Snapshot() *File {
 	return merged
 }
 
-// UpsertOutput queues a generated-output record to be written on Save.
-func (s *Session) UpsertOutput(
-	sources map[string]SourceRef,
-	outputPath, outputSHA string,
-	sizeBytes int64,
-	provenance *Provenance,
-) {
+// UpsertOutput queues one generated-output record to be written on Save.
+func (s *Session) UpsertOutput(outputPath string, ref GeneratedRef) {
 	if s == nil {
 		return
 	}
 
-	sourcesCopy := maps.Clone(sources)
+	sourcesCopy := maps.Clone(ref.Sources)
 
 	var provenanceCopy *Provenance
-	if provenance != nil {
-		toolsCopy := maps.Clone(provenance.Tools)
-		chainCopy := append([]string(nil), provenance.CommandChain...)
+	if ref.Provenance != nil {
+		toolsCopy := maps.Clone(ref.Provenance.Tools)
+		chainCopy := append([]string(nil), ref.Provenance.CommandChain...)
 		provenanceCopy = &Provenance{CommandChain: chainCopy, Tools: toolsCopy}
 	}
 
 	s.pendingUpsert[outputPath] = GeneratedRef{
 		Sources:    sourcesCopy,
 		Provenance: provenanceCopy,
-		SHA256:     outputSHA,
-		SizeBytes:  sizeBytes,
+		SHA256:     ref.SHA256,
+		SizeBytes:  ref.SizeBytes,
 	}
 	delete(s.pendingDelete, outputPath)
 }

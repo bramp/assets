@@ -117,12 +117,11 @@ func saveBuildResultWithRetry(
 	}
 	defer func() { _ = ls.Close() }()
 
-	ls.UpsertOutput(
-		map[string]lockfile.SourceRef{sourcePath: {SHA256: sourceHash, SizeBytes: sourceSize}},
-		outputPath,
-		outputHash,
-		outputSize,
-		provenance,
-	)
+	ls.UpsertOutput(outputPath, lockfile.GeneratedRef{
+		Sources:    map[string]lockfile.SourceRef{sourcePath: {SHA256: sourceHash, SizeBytes: sourceSize}},
+		Provenance: provenance,
+		SHA256:     outputHash,
+		SizeBytes:  outputSize,
+	})
 	return ls.SaveWithRetry(6, 10*time.Millisecond)
 }

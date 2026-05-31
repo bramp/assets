@@ -55,7 +55,8 @@ func writeCopyReplaceIfHashMatches(path string, expectedHash hashDigest, next *F
 	// This is an advisory sidecar lock: it only serializes writers that
 	// cooperate by acquiring this same <lockfile>.lock path before writes.
 	// Non-cooperative writers can still modify the lockfile directly; hash-CAS
-	// validation in Save/Update detects those races as conflicts.
+	// validation in Session.Save/Session.SaveWithRetry detects those races as
+	// conflicts.
 	unlock, err := lock(path)
 	if err != nil {
 		return err

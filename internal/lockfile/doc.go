@@ -1,15 +1,13 @@
-package lockfile
-
 // Package lockfile contains assets.lock data structures and serialization logic.
 //
-// Purpose
+// # Purpose
 //
 // The lockfile records build results for generated assets so verification can
 // be fast, deterministic, and auditable. It lets "assets verify" detect drift
 // between the manifest, source files, generated outputs, and execution
 // environment without re-running expensive transforms in CI.
 //
-// Schema intent
+// # Schema intent
 //
 // The lockfile is keyed by generated file path (`files`) because the generated
 // artifact is the stable verification target. Each generated file entry stores:
@@ -18,7 +16,31 @@ package lockfile
 //   - size_bytes: output byte size used for quick mismatch detection
 //   - provenance: command chain and tool versions used to build output
 //
-// Design principles
+// # Minimal lockfile JSON
+//
+// The smallest useful lockfile with one generated output looks like:
+//
+//	{
+//	  "version": "1.0",
+//	  "last_updated_at": "2026-01-02T03:04:05Z",
+//	  "files": {
+//	    "assets/images/logo_128.png": {
+//	      "sources": {
+//	        "raw/logo.svg": {
+//	          "sha256": "abc123",
+//	          "size_bytes": 1111
+//	        }
+//	      },
+//	      "sha256": "aaa111",
+//	      "size_bytes": 2048
+//	    }
+//	  }
+//	}
+//
+// For a full fixture including provenance details, see
+// internal/lockfile/testdata/lockfile.golden.json.
+//
+// # Design principles
 //
 //   - Output-centric indexing: prioritize lookup by generated file path.
 //   - Deterministic serialization: stable JSON formatting and key ordering.
@@ -26,7 +48,7 @@ package lockfile
 //   - Reproducibility checks: source hashes + provenance + output hash/size.
 //   - Human-readable diagnostics: schema should aid debugging in CI failures.
 //
-// Concurrency controls
+// # Concurrency controls
 //
 // Writes use a cooperative, optimistic concurrency model:
 //   - Cooperative lock: writers use a sidecar advisory lock file
@@ -46,4 +68,4 @@ package lockfile
 //   - Two writers update the same output at the same time:
 //     current behavior is last-writer-wins when retry is enabled; without retry,
 //     one writer receives ErrConflict.
-//
+package lockfile

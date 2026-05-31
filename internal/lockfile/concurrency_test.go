@@ -26,20 +26,16 @@ func TestSession_SaveConflict_WithCheckpointInterleaving(t *testing.T) {
 	}
 	defer func() { _ = writerB.Close() }()
 
-	writerA.UpsertOutput(
-		map[string]SourceRef{"raw/a.svg": {SHA256: "aaa", SizeBytes: 1}},
-		"assets/a.png",
-		"111",
-		10,
-		nil,
-	)
-	writerB.UpsertOutput(
-		map[string]SourceRef{"raw/b.svg": {SHA256: "bbb", SizeBytes: 2}},
-		"assets/b.png",
-		"222",
-		20,
-		nil,
-	)
+	writerA.UpsertOutput("assets/a.png", GeneratedRef{
+		Sources:   map[string]SourceRef{"raw/a.svg": {SHA256: "aaa", SizeBytes: 1}},
+		SHA256:    "111",
+		SizeBytes: 10,
+	})
+	writerB.UpsertOutput("assets/b.png", GeneratedRef{
+		Sources:   map[string]SourceRef{"raw/b.svg": {SHA256: "bbb", SizeBytes: 2}},
+		SHA256:    "222",
+		SizeBytes: 20,
+	})
 
 	aAtCheckpoint := make(chan struct{}, 1)
 	releaseA := make(chan struct{})
@@ -92,20 +88,16 @@ func TestSession_SaveConflictThenRetry_DifferentOutputsConverge(t *testing.T) {
 		t.Fatalf("open writer B: %v", err)
 	}
 
-	writerA.UpsertOutput(
-		map[string]SourceRef{"raw/a.svg": {SHA256: "aaa", SizeBytes: 1}},
-		"assets/a.png",
-		"111",
-		10,
-		nil,
-	)
-	writerB.UpsertOutput(
-		map[string]SourceRef{"raw/b.svg": {SHA256: "bbb", SizeBytes: 2}},
-		"assets/b.png",
-		"222",
-		20,
-		nil,
-	)
+	writerA.UpsertOutput("assets/a.png", GeneratedRef{
+		Sources:   map[string]SourceRef{"raw/a.svg": {SHA256: "aaa", SizeBytes: 1}},
+		SHA256:    "111",
+		SizeBytes: 10,
+	})
+	writerB.UpsertOutput("assets/b.png", GeneratedRef{
+		Sources:   map[string]SourceRef{"raw/b.svg": {SHA256: "bbb", SizeBytes: 2}},
+		SHA256:    "222",
+		SizeBytes: 20,
+	})
 
 	aAtCheckpoint := make(chan struct{}, 1)
 	releaseA := make(chan struct{})

@@ -43,16 +43,15 @@ func TestUpsertSaveOpen_RoundTrip(t *testing.T) {
 		t.Fatalf("open: %v", err)
 	}
 
-	ls.UpsertOutput(
-		map[string]lockfile.SourceRef{"raw/in.svg": {SHA256: "deadbeef", SizeBytes: 321}},
-		"assets/out.png",
-		"feedface",
-		1234,
-		&lockfile.Provenance{
+	ls.UpsertOutput("assets/out.png", lockfile.GeneratedRef{
+		Sources:   map[string]lockfile.SourceRef{"raw/in.svg": {SHA256: "deadbeef", SizeBytes: 321}},
+		SHA256:    "feedface",
+		SizeBytes: 1234,
+		Provenance: &lockfile.Provenance{
 			CommandChain: []string{"tool-a in out", "tool-b out"},
 			Tools:        map[string]string{"host_uname": "Darwin test", "tool-a": "1.0.0"},
 		},
-	)
+	})
 	saveErr := ls.Save()
 	if saveErr != nil {
 		t.Fatalf("save: %v", saveErr)
@@ -118,13 +117,11 @@ func TestSession_DeleteOutput(t *testing.T) {
 		t.Fatalf("seed open: %v", err)
 	}
 
-	seed.UpsertOutput(
-		map[string]lockfile.SourceRef{"raw/in.svg": {SHA256: "deadbeef", SizeBytes: 321}},
-		"assets/out.png",
-		"feedface",
-		1234,
-		nil,
-	)
+	seed.UpsertOutput("assets/out.png", lockfile.GeneratedRef{
+		Sources:   map[string]lockfile.SourceRef{"raw/in.svg": {SHA256: "deadbeef", SizeBytes: 321}},
+		SHA256:    "feedface",
+		SizeBytes: 1234,
+	})
 	if err := seed.Save(); err != nil {
 		t.Fatalf("seed save: %v", err)
 	}
@@ -175,25 +172,21 @@ func TestSession_SaveConflict(t *testing.T) {
 	}
 	defer func() { _ = writerB.Close() }()
 
-	writerA.UpsertOutput(
-		map[string]lockfile.SourceRef{"raw/a.svg": {SHA256: "aaa", SizeBytes: 1}},
-		"assets/a.png",
-		"111",
-		10,
-		nil,
-	)
+	writerA.UpsertOutput("assets/a.png", lockfile.GeneratedRef{
+		Sources:   map[string]lockfile.SourceRef{"raw/a.svg": {SHA256: "aaa", SizeBytes: 1}},
+		SHA256:    "111",
+		SizeBytes: 10,
+	})
 	writerASaveErr := writerA.Save()
 	if writerASaveErr != nil {
 		t.Fatalf("writer A save: %v", writerASaveErr)
 	}
 
-	writerB.UpsertOutput(
-		map[string]lockfile.SourceRef{"raw/b.svg": {SHA256: "bbb", SizeBytes: 2}},
-		"assets/b.png",
-		"222",
-		20,
-		nil,
-	)
+	writerB.UpsertOutput("assets/b.png", lockfile.GeneratedRef{
+		Sources:   map[string]lockfile.SourceRef{"raw/b.svg": {SHA256: "bbb", SizeBytes: 2}},
+		SHA256:    "222",
+		SizeBytes: 20,
+	})
 	writerBSaveErr := writerB.Save()
 	if !errors.Is(writerBSaveErr, lockfile.ErrConflict) {
 		t.Fatalf("expected ErrConflict, got: %v", writerBSaveErr)
@@ -209,13 +202,11 @@ func TestSession_SaveAfterClose(t *testing.T) {
 		t.Fatalf("open: %v", err)
 	}
 
-	ls.UpsertOutput(
-		map[string]lockfile.SourceRef{"raw/in.svg": {SHA256: "deadbeef", SizeBytes: 321}},
-		"assets/out.png",
-		"feedface",
-		1234,
-		nil,
-	)
+	ls.UpsertOutput("assets/out.png", lockfile.GeneratedRef{
+		Sources:   map[string]lockfile.SourceRef{"raw/in.svg": {SHA256: "deadbeef", SizeBytes: 321}},
+		SHA256:    "feedface",
+		SizeBytes: 1234,
+	})
 	closeErr := ls.Close()
 	if closeErr != nil {
 		t.Fatalf("close: %v", closeErr)

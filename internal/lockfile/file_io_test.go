@@ -24,13 +24,11 @@ func TestSave_ErrorWhenParentIsFile(t *testing.T) {
 	}
 	defer func() { _ = ls.Close() }()
 
-	ls.UpsertOutput(
-		map[string]lockfile.SourceRef{"raw/in.svg": {SHA256: "abc123", SizeBytes: 1}},
-		"assets/out.png",
-		"deadbeef",
-		100,
-		nil,
-	)
+	ls.UpsertOutput("assets/out.png", lockfile.GeneratedRef{
+		Sources:   map[string]lockfile.SourceRef{"raw/in.svg": {SHA256: "abc123", SizeBytes: 1}},
+		SHA256:    "deadbeef",
+		SizeBytes: 100,
+	})
 	if err := ls.Save(); err == nil {
 		t.Fatal("expected save error when parent path is not a directory")
 	}
@@ -69,12 +67,11 @@ func TestSave_GoldenOutput(t *testing.T) {
 	}
 	defer func() { _ = ls.Close() }()
 
-	ls.UpsertOutput(
-		map[string]lockfile.SourceRef{"raw/logo.svg": {SHA256: "abc123", SizeBytes: 1111}},
-		"assets/images/logo_128.png",
-		"aaa111",
-		2048,
-		&lockfile.Provenance{
+	ls.UpsertOutput("assets/images/logo_128.png", lockfile.GeneratedRef{
+		Sources:   map[string]lockfile.SourceRef{"raw/logo.svg": {SHA256: "abc123", SizeBytes: 1111}},
+		SHA256:    "aaa111",
+		SizeBytes: 2048,
+		Provenance: &lockfile.Provenance{
 			CommandChain: []string{
 				"resvg --width 128 --height 128 raw/logo.svg assets/images/logo_128.png",
 				"oxipng -o 3 --strip safe --out assets/images/logo_128.png assets/images/logo_128.png",
@@ -85,13 +82,12 @@ func TestSave_GoldenOutput(t *testing.T) {
 				"oxipng":     "9.1.3",
 			},
 		},
-	)
-	ls.UpsertOutput(
-		map[string]lockfile.SourceRef{"raw/photo.jpg": {SHA256: "def456", SizeBytes: 2222}},
-		"assets/images/photo_1024.jpg",
-		"bbb222",
-		8192,
-		&lockfile.Provenance{
+	})
+	ls.UpsertOutput("assets/images/photo_1024.jpg", lockfile.GeneratedRef{
+		Sources:   map[string]lockfile.SourceRef{"raw/photo.jpg": {SHA256: "def456", SizeBytes: 2222}},
+		SHA256:    "bbb222",
+		SizeBytes: 8192,
+		Provenance: &lockfile.Provenance{
 			CommandChain: []string{
 				"magick raw/photo.jpg assets/images/photo_1024.jpg",
 				"jpegoptim --strip-all assets/images/photo_1024.jpg",
@@ -102,7 +98,7 @@ func TestSave_GoldenOutput(t *testing.T) {
 				"jpegoptim":  "1.5.5",
 			},
 		},
-	)
+	})
 	if err := ls.Save(); err != nil {
 		t.Fatalf("save: %v", err)
 	}
