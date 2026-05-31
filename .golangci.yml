@@ -87,7 +87,7 @@ linters:
     - loggercheck # checks key value pairs for common logger libraries (kitlog,klog,logr,zap)
     - makezero # finds slice declarations with non-zero initial length
     - mirror # reports wrong mirror patterns of bytes/strings usage
-    - mnd # detects magic numbers
+#    - mnd # detects magic numbers
     - modernize # suggests simplifications to Go code, using modern language and library features
     - musttag # enforces field tags in (un)marshaled structs
     - nakedret # finds naked returns in functions greater than a specified function length
@@ -231,6 +231,9 @@ linters:
       # Such cases aren't reported by default.
       # Default: false
       check-type-assertions: true
+      # Allow concise deferred closes for os.File without forcing explicit error discard.
+      exclude-functions:
+        - (*os.File).Close
 
     exhaustive:
       # Program elements to check for exhaustiveness.
@@ -334,12 +337,7 @@ linters:
       # Default: []
       disable:
         - fieldalignment # too strict
-      # Settings per analyzer.
-      settings:
-        shadow:
-          # Whether to be strict about shadowing; can be noisy.
-          # Default: false
-          strict: true
+        - shadow # allow local err shadowing in short if statements
 
     inamedparam:
       # Skips check for interface methods with only a single parameter.

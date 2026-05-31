@@ -14,6 +14,9 @@ import (
 	"github.com/bramp/assets/internal/render"
 )
 
+// RunVerifyLock verifies manifest sources, generated outputs, and lockfile provenance.
+//
+//nolint:funlen,gocognit // Verification intentionally performs sequential checks to emit all mismatches.
 func RunVerifyLock(args []string, stderr io.Writer) int {
 	fs := flag.NewFlagSet("verify", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -36,11 +39,14 @@ func RunVerifyLock(args []string, stderr io.Writer) int {
 	}
 
 	baseDir := filepath.Dir(*manifestPath)
-	lf, err := lockfile.Load(filepath.Join(baseDir, *lockPath))
+	lf, err := lockfile.Open(filepath.Join(baseDir, *lockPath))
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "verify: failed to load lockfile %q: %v\n", *lockPath, err)
 		return 1
 	}
+	defer func() { _ = lf.Close() }()
+
+	lockData := lf.Snapshot()
 
 	var errs []string
 	for _, a := range m.Assets {
@@ -52,7 +58,7 @@ func RunVerifyLock(args []string, stderr io.Writer) int {
 		}
 
 		for _, out := range a.Outputs {
-			lOut, ok := lf.Files[out.Path]
+			lOut, ok := lockData.Files[out.Path]
 			if !ok {
 				errs = append(errs, fmt.Sprintf("asset %q output %q missing from lockfile", a.ID, out.Path))
 				continue
@@ -63,7 +69,10 @@ func RunVerifyLock(args []string, stderr io.Writer) int {
 
 			steps, resolveErr := render.ResolvePipeline(m, a.Source, out)
 			if resolveErr != nil {
-				errs = append(errs, fmt.Sprintf("asset %q output %q pipeline resolve failed: %v", a.ID, out.Path, resolveErr))
+				errs = append(
+					errs,
+					fmt.Sprintf("asset %q output %q pipeline resolve failed: %v", a.ID, out.Path, resolveErr),
+				)
 				continue
 			}
 
@@ -73,8 +82,8 @@ func RunVerifyLock(args []string, stderr io.Writer) int {
 			}
 
 			outPath := filepath.Join(baseDir, out.Path)
-			outputHash, outputSize, hashErr := hash.FileSHA256AndSize(outPath)
-			if hashErr != nil {
+			outputHash, outputSize, outputHashErr := hash.FileSHA256AndSize(outPath)
+			if outputHashErr != nil {
 				errs = append(errs, fmt.Sprintf("asset %q output %q missing on disk", a.ID, out.Path))
 				continue
 			}

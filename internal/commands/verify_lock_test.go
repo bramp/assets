@@ -1,4 +1,4 @@
-package commands
+package commands_test
 
 import (
 	"bytes"
@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/bramp/assets/internal/commands"
 )
 
 func TestRunVerifyLock_Success(t *testing.T) {
@@ -17,11 +19,14 @@ func TestRunVerifyLock_Success(t *testing.T) {
 	manifestPath := writePipelineFixture(t, dir)
 
 	var stderr bytes.Buffer
-	if exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr); exit != 0 {
+	if exit := commands.RunBuildTarget(
+		[]string{"--manifest", manifestPath, "--target", "out/out.txt"},
+		&stderr,
+	); exit != 0 {
 		t.Fatalf("build-target failed: %s", stderr.String())
 	}
 	stderr.Reset()
-	if exit := RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 0 {
+	if exit := commands.RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 0 {
 		t.Fatalf("verify-lock failed: %s", stderr.String())
 	}
 }
@@ -33,7 +38,10 @@ func TestRunVerifyLock_SourceMismatch(t *testing.T) {
 	manifestPath := writePipelineFixture(t, dir)
 
 	var stderr bytes.Buffer
-	if exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr); exit != 0 {
+	if exit := commands.RunBuildTarget(
+		[]string{"--manifest", manifestPath, "--target", "out/out.txt"},
+		&stderr,
+	); exit != 0 {
 		t.Fatalf("build-target failed: %s", stderr.String())
 	}
 
@@ -42,7 +50,7 @@ func TestRunVerifyLock_SourceMismatch(t *testing.T) {
 	}
 
 	stderr.Reset()
-	if exit := RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 1 {
+	if exit := commands.RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 1 {
 		t.Fatalf("expected verify-lock failure, got %d", exit)
 	}
 	if stderr.Len() == 0 {
@@ -69,20 +77,25 @@ func TestEndToEnd_CheckGenBuildVerify(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read manifest: %v", err)
 	}
-	updated := strings.ReplaceAll(string(manifestBytes), "source: \"raw/in.txt\"", "source: \"raw/in.txt\"\n    owner: \"A\"\n    copyright: \"C\"\n    license: \"L\"")
-	if err := os.WriteFile(manifestPath, []byte(updated), 0o644); err != nil {
-		t.Fatalf("write manifest: %v", err)
+	updated := strings.ReplaceAll(
+		string(manifestBytes),
+		"source: \"raw/in.txt\"",
+		"source: \"raw/in.txt\"\n    owner: \"A\"\n    copyright: \"C\"\n    license: \"L\"",
+	)
+	writeManifestErr := os.WriteFile(manifestPath, []byte(updated), 0o644)
+	if writeManifestErr != nil {
+		t.Fatalf("write manifest: %v", writeManifestErr)
 	}
 
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 
-	if exit := RunCheck([]string{"--manifest", manifestPath, "--strict"}, &stderr); exit != 0 {
+	if exit := commands.RunCheck([]string{"--manifest", manifestPath, "--strict"}, &stderr); exit != 0 {
 		t.Fatalf("check failed: %s", stderr.String())
 	}
 	stderr.Reset()
 
-	if exit := RunGen([]string{"--manifest", manifestPath}, &out, &stderr); exit != 0 {
+	if exit := commands.RunGen([]string{"--manifest", manifestPath}, &out, &stderr); exit != 0 {
 		t.Fatalf("gen failed: %s", stderr.String())
 	}
 	if !strings.Contains(out.String(), "out/out.txt: raw/in.txt") {
@@ -91,12 +104,15 @@ func TestEndToEnd_CheckGenBuildVerify(t *testing.T) {
 	out.Reset()
 	stderr.Reset()
 
-	if exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr); exit != 0 {
+	if exit := commands.RunBuildTarget(
+		[]string{"--manifest", manifestPath, "--target", "out/out.txt"},
+		&stderr,
+	); exit != 0 {
 		t.Fatalf("build-target failed: %s", stderr.String())
 	}
 	stderr.Reset()
 
-	if exit := RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 0 {
+	if exit := commands.RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 0 {
 		t.Fatalf("verify-lock failed: %s", stderr.String())
 	}
 }
@@ -105,7 +121,7 @@ func TestRunVerifyLock_PositionalArgsFail(t *testing.T) {
 	t.Parallel()
 
 	var stderr bytes.Buffer
-	if exit := RunVerifyLock([]string{"extra"}, &stderr); exit != 1 {
+	if exit := commands.RunVerifyLock([]string{"extra"}, &stderr); exit != 1 {
 		t.Fatalf("expected positional-arg failure, got %d", exit)
 	}
 }
@@ -117,7 +133,10 @@ func TestRunVerifyLock_MissingOutputOnDisk(t *testing.T) {
 	manifestPath := writePipelineFixture(t, dir)
 
 	var stderr bytes.Buffer
-	if exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr); exit != 0 {
+	if exit := commands.RunBuildTarget(
+		[]string{"--manifest", manifestPath, "--target", "out/out.txt"},
+		&stderr,
+	); exit != 0 {
 		t.Fatalf("build-target failed: %s", stderr.String())
 	}
 
@@ -126,7 +145,7 @@ func TestRunVerifyLock_MissingOutputOnDisk(t *testing.T) {
 	}
 
 	stderr.Reset()
-	if exit := RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 1 {
+	if exit := commands.RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 1 {
 		t.Fatalf("expected verify-lock failure, got %d", exit)
 	}
 	if !strings.Contains(stderr.String(), "missing on disk") {
@@ -141,7 +160,10 @@ func TestRunVerifyLock_ProvenanceMismatch(t *testing.T) {
 	manifestPath := writePipelineFixture(t, dir)
 
 	var stderr bytes.Buffer
-	if exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr); exit != 0 {
+	if exit := commands.RunBuildTarget(
+		[]string{"--manifest", manifestPath, "--target", "out/out.txt"},
+		&stderr,
+	); exit != 0 {
 		t.Fatalf("build-target failed: %s", stderr.String())
 	}
 
@@ -152,12 +174,13 @@ func TestRunVerifyLock_ProvenanceMismatch(t *testing.T) {
 	}
 	// mutate provenance command chain so verify-lock detects mismatch
 	mutated := strings.Replace(string(b), "cp {input} {output}", "cp {input} {output} #changed", 1)
-	if err := os.WriteFile(lockPath, []byte(mutated), 0o644); err != nil {
-		t.Fatalf("write lockfile: %v", err)
+	writeLockErr := os.WriteFile(lockPath, []byte(mutated), 0o644)
+	if writeLockErr != nil {
+		t.Fatalf("write lockfile: %v", writeLockErr)
 	}
 
 	stderr.Reset()
-	if exit := RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 1 {
+	if exit := commands.RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 1 {
 		t.Fatalf("expected verify-lock failure, got %d", exit)
 	}
 	if !strings.Contains(stderr.String(), "provenance mismatch") {
@@ -169,23 +192,29 @@ func TestRunVerifyLock_OtherFailures(t *testing.T) {
 	t.Parallel()
 
 	t.Run("manifest load failure", func(t *testing.T) {
+		t.Parallel()
+
 		var stderr bytes.Buffer
-		if exit := RunVerifyLock([]string{"--manifest", "missing.yaml"}, &stderr); exit != 1 {
+		if exit := commands.RunVerifyLock([]string{"--manifest", "missing.yaml"}, &stderr); exit != 1 {
 			t.Fatalf("expected load failure, got %d", exit)
 		}
 	})
 
 	t.Run("lockfile load failure", func(t *testing.T) {
+		t.Parallel()
+
 		dir := t.TempDir()
 		manifestPath := writePipelineFixture(t, dir)
 
 		var stderr bytes.Buffer
-		if exit := RunVerifyLock([]string{"--manifest", manifestPath, "--lock", "."}, &stderr); exit != 1 {
+		if exit := commands.RunVerifyLock([]string{"--manifest", manifestPath, "--lock", "."}, &stderr); exit != 1 {
 			t.Fatalf("expected lockfile load failure, got %d", exit)
 		}
 	})
 
 	t.Run("asset missing from lockfile", func(t *testing.T) {
+		t.Parallel()
+
 		dir := t.TempDir()
 		manifestPath := writePipelineFixture(t, dir)
 
@@ -194,7 +223,7 @@ func TestRunVerifyLock_OtherFailures(t *testing.T) {
 		}
 
 		var stderr bytes.Buffer
-		if exit := RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 1 {
+		if exit := commands.RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 1 {
 			t.Fatalf("expected missing-asset failure, got %d", exit)
 		}
 		if !strings.Contains(stderr.String(), "output \"out/out.txt\" missing from lockfile") {

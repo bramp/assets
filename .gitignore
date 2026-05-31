@@ -1,2 +1,4 @@
 examples/complex/package.json
 examples/complex/package-lock.json
+internal/lockfile/assets.lock
+internal/lockfile/assets.lock.lock

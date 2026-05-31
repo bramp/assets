@@ -17,6 +17,7 @@ type outputRule struct {
 	Output manifest.Output
 }
 
+// RunGen prints a deterministic Makefile fragment for declared outputs.
 func RunGen(args []string, stdout io.Writer, stderr io.Writer) int {
 	fs := flag.NewFlagSet("gen", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -92,7 +93,12 @@ func collectOutputRules(m *manifest.Manifest) []outputRule {
 }
 
 func appendCommentedCommands(b *strings.Builder, m *manifest.Manifest, r outputRule) {
-	steps, err := render.ResolvePipelineWithOptions(m, r.Source, r.Output, render.ResolveOptions{CheckAvailability: false})
+	steps, err := render.ResolvePipelineWithOptions(
+		m,
+		r.Source,
+		r.Output,
+		render.ResolveOptions{CheckAvailability: false},
+	)
 	if err != nil {
 		// Keep unresolved notes as plain comments, not make recipes.
 		b.WriteString("  # unresolved: ")

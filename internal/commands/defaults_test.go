@@ -1,10 +1,12 @@
-package commands
+package commands_test
 
 import (
 	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/bramp/assets/internal/commands"
 )
 
 func TestRunDefaults_GoldenOutput(t *testing.T) {
@@ -18,7 +20,7 @@ func TestRunDefaults_GoldenOutput(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	exitCode := RunDefaults(nil, &stdout, &stderr)
+	exitCode := commands.RunDefaults(nil, &stdout, &stderr)
 	if exitCode != 0 {
 		t.Fatalf("expected exit 0, got %d, stderr=%q", exitCode, stderr.String())
 	}
@@ -35,19 +37,19 @@ func TestRunDefaults_ArgErrors(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if exit := RunDefaults([]string{"extra"}, &stdout, &stderr); exit != 1 {
+	if exit := commands.RunDefaults([]string{"extra"}, &stdout, &stderr); exit != 1 {
 		t.Fatalf("expected positional argument error, got %d", exit)
 	}
 
 	stdout.Reset()
 	stderr.Reset()
-	if exit := RunDefaults([]string{"--unknown"}, &stdout, &stderr); exit != 1 {
+	if exit := commands.RunDefaults([]string{"--unknown"}, &stdout, &stderr); exit != 1 {
 		t.Fatalf("expected parse error, got %d", exit)
 	}
 
 	stdout.Reset()
 	stderr.Reset()
-	if exit := RunDefaults([]string{"--transform", "nope"}, &stdout, &stderr); exit != 1 {
+	if exit := commands.RunDefaults([]string{"--transform", "nope"}, &stdout, &stderr); exit != 1 {
 		t.Fatalf("expected flag parse error, got %d", exit)
 	}
 }

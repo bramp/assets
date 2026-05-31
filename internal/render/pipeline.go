@@ -1,20 +1,31 @@
 package render
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/bramp/assets/internal/manifest"
 )
 
+const (
+	defaultBackgroundColor = "transparent"
+	scaleModeFit           = "fit"
+	outputDirPerm          = 0o750
+)
+
+// TargetSpec identifies the manifest asset/output pair matching a target path.
 type TargetSpec struct {
 	Asset  manifest.Asset
 	Output manifest.Output
 }
 
+// BuildContext provides placeholder values used to render pipeline commands.
 type BuildContext struct {
 	InputPath  string
 	OutputPath string
@@ -26,12 +37,14 @@ type BuildContext struct {
 	Tmp2Path   string
 }
 
+// ResolveOptions controls behavior of pipeline path resolution.
 type ResolveOptions struct {
 	// CheckAvailability controls whether unavailable tools are filtered out.
 	// Defaults to true in ResolvePipeline.
 	CheckAvailability bool
 }
 
+// FindTarget resolves a manifest output path to its source asset and output spec.
 func FindTarget(m *manifest.Manifest, targetPath string) (*TargetSpec, error) {
 	for _, a := range m.Assets {
 		for _, o := range a.Outputs {
@@ -43,11 +56,18 @@ func FindTarget(m *manifest.Manifest, targetPath string) (*TargetSpec, error) {
 	return nil, fmt.Errorf("target not found in manifest: %s", targetPath)
 }
 
+// ResolvePipeline chooses a compatible tool chain from source to output format.
 func ResolvePipeline(m *manifest.Manifest, sourcePath string, o manifest.Output) ([]manifest.PipelineStep, error) {
 	return ResolvePipelineWithOptions(m, sourcePath, o, ResolveOptions{CheckAvailability: true})
 }
 
-func ResolvePipelineWithOptions(m *manifest.Manifest, sourcePath string, o manifest.Output, opts ResolveOptions) ([]manifest.PipelineStep, error) {
+// ResolvePipelineWithOptions resolves a compatible pipeline with caller-provided options.
+func ResolvePipelineWithOptions(
+	m *manifest.Manifest,
+	sourcePath string,
+	o manifest.Output,
+	opts ResolveOptions,
+) ([]manifest.PipelineStep, error) {
 	sourceExt := strings.ToLower(strings.TrimSpace(filepath.Ext(sourcePath)))
 	outputExt := strings.ToLower(strings.TrimSpace(filepath.Ext(o.Path)))
 	order := buildGraphPreferenceOrder(m, o)
@@ -58,8 +78,7 @@ func ResolvePipelineWithOptions(m *manifest.Manifest, sourcePath string, o manif
 	// TODO(bramp): Model final optimization as an explicit graph node/state so
 	// terminal optimization is selected during path resolution instead of appended
 	// after graph traversal.
-	steps, err = appendTerminalOptimizer(m.Meta.Render, steps, outputExt, opts)
-	if err != nil {
+	if steps, err = appendTerminalOptimizer(m.Meta.Render, steps, outputExt, opts); err != nil {
 		return nil, err
 	}
 
@@ -70,7 +89,12 @@ func ResolvePipelineWithOptions(m *manifest.Manifest, sourcePath string, o manif
 	return steps, nil
 }
 
-func appendTerminalOptimizer(cfg manifest.RenderConfig, steps []manifest.PipelineStep, outputExt string, opts ResolveOptions) ([]manifest.PipelineStep, error) {
+func appendTerminalOptimizer(
+	cfg manifest.RenderConfig,
+	steps []manifest.PipelineStep,
+	outputExt string,
+	opts ResolveOptions,
+) ([]manifest.PipelineStep, error) {
 	normExt := strings.ToLower(strings.TrimSpace(outputExt))
 	if normExt == "" || len(cfg.OptimizeByFormat) == 0 {
 		return steps, nil
@@ -87,10 +111,19 @@ func appendTerminalOptimizer(cfg manifest.RenderConfig, steps []manifest.Pipelin
 
 	optimizeStep, ok := cfg.Tools[normOptimizeStepName]
 	if !ok {
-		return nil, fmt.Errorf("optimizer %q configured for %q not found in render tools", normOptimizeStepName, normExt)
+		return nil, fmt.Errorf(
+			"optimizer %q configured for %q not found in render tools",
+			normOptimizeStepName,
+			normExt,
+		)
 	}
 	if !matchesFormatList(optimizeStep.Accepts, normExt) || !matchesFormatList(optimizeStep.Produces, normExt) {
-		return nil, fmt.Errorf("optimizer %q configured for %q must accept and produce %q", normOptimizeStepName, normExt, normExt)
+		return nil, fmt.Errorf(
+			"optimizer %q configured for %q must accept and produce %q",
+			normOptimizeStepName,
+			normExt,
+			normExt,
+		)
 	}
 
 	if len(steps) > 0 && samePipelineStep(steps[len(steps)-1], optimizeStep) {
@@ -106,7 +139,8 @@ func appendTerminalOptimizer(cfg manifest.RenderConfig, steps []manifest.Pipelin
 }
 
 func samePipelineStep(a manifest.PipelineStep, b manifest.PipelineStep) bool {
-	return strings.TrimSpace(a.Tool) == strings.TrimSpace(b.Tool) && strings.TrimSpace(a.Command) == strings.TrimSpace(b.Command)
+	return strings.TrimSpace(a.Tool) == strings.TrimSpace(b.Tool) &&
+		strings.TrimSpace(a.Command) == strings.TrimSpace(b.Command)
 }
 
 func supportsScaleMode(supported []string, mode string) bool {
@@ -127,9 +161,17 @@ func buildGraphPreferenceOrder(m *manifest.Manifest, o manifest.Output) []string
 	return buildPreferenceOrder(o.Options.Tools, m.Meta.Render.Defaults.Tools)
 }
 
-func resolveGraphPath(tools map[string]manifest.PipelineStep, order []string, sourceExt string, outputExt string, scaleMode string, opts ResolveOptions) ([]manifest.PipelineStep, error) {
+//nolint:funlen,gocognit // Path search weighs availability, format compatibility, and preferences.
+func resolveGraphPath(
+	tools map[string]manifest.PipelineStep,
+	order []string,
+	sourceExt string,
+	outputExt string,
+	scaleMode string,
+	opts ResolveOptions,
+) ([]manifest.PipelineStep, error) {
 	if sourceExt == "" || outputExt == "" {
-		return nil, fmt.Errorf("unable to resolve conversion path for empty source/output format")
+		return nil, errors.New("unable to resolve conversion path for empty source/output format")
 	}
 	toolAvailable := buildAvailabilityChecker(opts)
 	maxDepth := 4
@@ -312,12 +354,14 @@ func binaryAvailable(toolName string) bool {
 	return err == nil
 }
 
+// ExecutePipeline runs all resolved pipeline steps with default command hook behavior.
 func ExecutePipeline(steps []manifest.PipelineStep, ctx BuildContext) error {
 	return ExecutePipelineWithHook(steps, ctx, nil)
 }
 
+// ExecutePipelineWithHook runs all resolved steps and optionally reports command text.
 func ExecutePipelineWithHook(steps []manifest.PipelineStep, ctx BuildContext, onCommand func(string)) error {
-	if err := os.MkdirAll(filepath.Dir(ctx.OutputPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(ctx.OutputPath), outputDirPerm); err != nil {
 		return err
 	}
 
@@ -325,7 +369,7 @@ func ExecutePipelineWithHook(steps []manifest.PipelineStep, ctx BuildContext, on
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	ctx.TmpPath = filepath.Join(tmpDir, "stage1")
 	ctx.Tmp2Path = filepath.Join(tmpDir, "stage2")
@@ -342,25 +386,29 @@ func ExecutePipelineWithHook(steps []manifest.PipelineStep, ctx BuildContext, on
 		if i+1 < len(steps) {
 			nextStep = &steps[i+1]
 		}
-		if i == len(steps)-1 {
+		switch {
+		case i == len(steps)-1:
 			stepCtx.OutputPath = ctx.OutputPath
-		} else {
-			if i%2 == 0 {
-				stepCtx.OutputPath = stepTempPath(ctx.TmpPath, step, currentInput, outputExt, nextStep)
-			} else {
-				stepCtx.OutputPath = stepTempPath(ctx.Tmp2Path, step, currentInput, outputExt, nextStep)
-			}
+		case i%2 == 0:
+			stepCtx.OutputPath = stepTempPath(ctx.TmpPath, step, currentInput, outputExt, nextStep)
+		default:
+			stepCtx.OutputPath = stepTempPath(ctx.Tmp2Path, step, currentInput, outputExt, nextStep)
 		}
 
 		cmdText := expandStepCommand(step, stepCtx)
 		if onCommand != nil {
 			onCommand(cmdText)
 		}
-		cmd := exec.Command("sh", "-c", cmdText)
+		cmd := exec.CommandContext(context.Background(), "sh", "-c", cmdText)
 		cmd.Env = append(os.Environ(), "LC_ALL=C", "TZ=UTC")
 		out, runErr := cmd.CombinedOutput()
 		if runErr != nil {
-			return fmt.Errorf("pipeline step %q failed: %w (output: %s)", step.Tool, runErr, strings.TrimSpace(string(out)))
+			return fmt.Errorf(
+				"pipeline step %q failed: %w (output: %s)",
+				step.Tool,
+				runErr,
+				strings.TrimSpace(string(out)),
+			)
 		}
 		if err := ensureFileExistsAndNonEmpty(stepCtx.OutputPath); err != nil {
 			return fmt.Errorf("pipeline step %q did not produce output %q: %w", step.Tool, stepCtx.OutputPath, err)
@@ -381,7 +429,7 @@ func ensureFileExistsAndNonEmpty(path string) error {
 		return err
 	}
 	if st.Size() <= 0 {
-		return fmt.Errorf("size must be > 0 bytes")
+		return errors.New("size must be > 0 bytes")
 	}
 	// TODO(bramp): Validate file content against expected media format after each step.
 	return nil
@@ -402,11 +450,12 @@ func PlannedCommands(steps []manifest.PipelineStep, ctx BuildContext) []string {
 		if i+1 < len(steps) {
 			nextStep = &steps[i+1]
 		}
-		if i == len(steps)-1 {
+		switch {
+		case i == len(steps)-1:
 			stepCtx.OutputPath = ctx.OutputPath
-		} else if i%2 == 0 {
+		case i%2 == 0:
 			stepCtx.OutputPath = stepTempPath(ctx.TmpPath, step, currentInput, outputExt, nextStep)
-		} else {
+		default:
 			stepCtx.OutputPath = stepTempPath(ctx.Tmp2Path, step, currentInput, outputExt, nextStep)
 		}
 
@@ -421,7 +470,13 @@ func expand(s string, ctx BuildContext) string {
 	return expandWithSetSize(s, ctx, "")
 }
 
-func stepTempPath(basePath string, step manifest.PipelineStep, currentInput string, finalOutputExt string, nextStep *manifest.PipelineStep) string {
+func stepTempPath(
+	basePath string,
+	step manifest.PipelineStep,
+	currentInput string,
+	finalOutputExt string,
+	nextStep *manifest.PipelineStep,
+) string {
 	ext := stepOutputExt(step, currentInput, finalOutputExt, nextStep)
 	if ext == "" {
 		return basePath
@@ -429,7 +484,12 @@ func stepTempPath(basePath string, step manifest.PipelineStep, currentInput stri
 	return strings.TrimSuffix(basePath, filepath.Ext(basePath)) + ext
 }
 
-func stepOutputExt(step manifest.PipelineStep, currentInput string, finalOutputExt string, nextStep *manifest.PipelineStep) string {
+func stepOutputExt(
+	step manifest.PipelineStep,
+	currentInput string,
+	finalOutputExt string,
+	nextStep *manifest.PipelineStep,
+) string {
 	produced := producedFormats(step.Produces, finalOutputExt)
 	if len(produced) == 0 {
 		return strings.ToLower(strings.TrimSpace(filepath.Ext(currentInput)))
@@ -483,10 +543,10 @@ func expandStep(s string, ctx BuildContext, setSize string) string {
 		"{output}", shellQuote(ctx.OutputPath),
 		"{tmp}", shellQuote(ctx.TmpPath),
 		"{tmp2}", shellQuote(ctx.Tmp2Path),
-		"{width}", fmt.Sprintf("%d", ctx.Width),
-		"{height}", fmt.Sprintf("%d", ctx.Height),
-		"{WIDTH}", fmt.Sprintf("%d", ctx.Width),
-		"{HEIGHT}", fmt.Sprintf("%d", ctx.Height),
+		"{width}", strconv.Itoa(ctx.Width),
+		"{height}", strconv.Itoa(ctx.Height),
+		"{WIDTH}", strconv.Itoa(ctx.Width),
+		"{HEIGHT}", strconv.Itoa(ctx.Height),
 		"{scale_mode}", shellQuote(ctx.ScaleMode),
 		"{background}", shellQuote(ctx.Background),
 		"{sets_size}", setSize,
@@ -497,11 +557,11 @@ func expandStep(s string, ctx BuildContext, setSize string) string {
 }
 
 func resizeArgs(ctx BuildContext) string {
-	width := fmt.Sprintf("%d", ctx.Width)
-	height := fmt.Sprintf("%d", ctx.Height)
+	width := strconv.Itoa(ctx.Width)
+	height := strconv.Itoa(ctx.Height)
 	bg := ctx.Background
 	if strings.TrimSpace(bg) == "" {
-		bg = "transparent"
+		bg = defaultBackgroundColor
 	}
 
 	switch strings.ToLower(strings.TrimSpace(ctx.ScaleMode)) {
@@ -509,10 +569,17 @@ func resizeArgs(ctx BuildContext) string {
 		return fmt.Sprintf("-resize %sx%s^ -gravity center -extent %sx%s", width, height, width, height)
 	case "stretch":
 		return fmt.Sprintf("-resize %sx%s!", width, height)
-	case "fit", "":
+	case scaleModeFit, "":
 		fallthrough
 	default:
-		return fmt.Sprintf("-resize %sx%s -background %s -gravity center -extent %sx%s", width, height, shellQuote(bg), width, height)
+		return fmt.Sprintf(
+			"-resize %sx%s -background %s -gravity center -extent %sx%s",
+			width,
+			height,
+			shellQuote(bg),
+			width,
+			height,
+		)
 	}
 }
 

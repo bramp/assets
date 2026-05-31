@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"time"
 
 	"github.com/bramp/assets/internal/hash"
 	"github.com/bramp/assets/internal/lockfile"
@@ -12,6 +13,7 @@ import (
 	"github.com/bramp/assets/internal/render"
 )
 
+// RunBuildTarget builds a single manifest output target and updates the lockfile.
 func RunBuildTarget(args []string, stderr io.Writer) int {
 	fs := flag.NewFlagSet("build", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -87,13 +89,40 @@ func RunBuildTarget(args []string, stderr io.Writer) int {
 
 	lockAbsPath := filepath.Join(baseDir, *lockPath)
 	provenance := render.CollectProvenance(steps)
-	if err := lockfile.Update(lockAbsPath, func(lf *lockfile.File) error {
-		lf.UpsertOutput(map[string]lockfile.SourceRef{spec.Asset.Source: {SHA256: sourceHash, SizeBytes: sourceSize}}, spec.Output.Path, outputHash, outputSize, provenance)
-		return nil
-	}); err != nil {
+	if err := saveBuildResultWithRetry(
+		lockAbsPath,
+		spec.Asset.Source,
+		spec.Output.Path,
+		sourceHash,
+		outputHash,
+		sourceSize,
+		outputSize,
+		provenance,
+	); err != nil {
 		_, _ = fmt.Fprintf(stderr, "build: failed to update lockfile: %v\n", err)
 		return 1
 	}
 
 	return 0
+}
+
+func saveBuildResultWithRetry(
+	lockAbsPath, sourcePath, outputPath, sourceHash, outputHash string,
+	sourceSize, outputSize int64,
+	provenance *lockfile.Provenance,
+) error {
+	ls, err := lockfile.Open(lockAbsPath)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = ls.Close() }()
+
+	ls.UpsertOutput(
+		map[string]lockfile.SourceRef{sourcePath: {SHA256: sourceHash, SizeBytes: sourceSize}},
+		outputPath,
+		outputHash,
+		outputSize,
+		provenance,
+	)
+	return ls.SaveWithRetry(6, 10*time.Millisecond)
 }

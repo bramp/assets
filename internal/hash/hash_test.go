@@ -1,9 +1,11 @@
-package hash
+package hash_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/bramp/assets/internal/hash"
 )
 
 func TestFileSHA256(t *testing.T) {
@@ -15,7 +17,7 @@ func TestFileSHA256(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	got, err := FileSHA256(path)
+	got, err := hash.FileSHA256(path)
 	if err != nil {
 		t.Fatalf("hash: %v", err)
 	}
@@ -34,7 +36,7 @@ func TestFileSHA256AndSize(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	gotHash, gotSize, err := FileSHA256AndSize(path)
+	gotHash, gotSize, err := hash.FileSHA256AndSize(path)
 	if err != nil {
 		t.Fatalf("hash+size: %v", err)
 	}
@@ -50,7 +52,7 @@ func TestFileSHA256AndSize(t *testing.T) {
 func TestFileSHA256_NotFound(t *testing.T) {
 	t.Parallel()
 
-	if _, err := FileSHA256(filepath.Join(t.TempDir(), "missing.txt")); err == nil {
+	if _, err := hash.FileSHA256(filepath.Join(t.TempDir(), "missing.txt")); err == nil {
 		t.Fatal("expected not-found error")
 	}
 }
@@ -58,7 +60,7 @@ func TestFileSHA256_NotFound(t *testing.T) {
 func TestFileSHA256AndSize_NotFound(t *testing.T) {
 	t.Parallel()
 
-	if _, _, err := FileSHA256AndSize(filepath.Join(t.TempDir(), "missing.txt")); err == nil {
+	if _, _, err := hash.FileSHA256AndSize(filepath.Join(t.TempDir(), "missing.txt")); err == nil {
 		t.Fatal("expected not-found error")
 	}
 }

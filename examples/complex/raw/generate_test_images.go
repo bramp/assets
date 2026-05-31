@@ -41,9 +41,9 @@ func main() {
 		}
 	}
 
-	fmt.Println("Generated files:")
+	_, _ = fmt.Fprintln(os.Stderr, "Generated files:")
 	for _, t := range targets {
-		fmt.Printf(" - %s\n", t.file)
+		_, _ = fmt.Fprintf(os.Stderr, " - %s\n", t.file)
 	}
 }
 
@@ -56,7 +56,7 @@ func writeSVG(path, label string) error {
 </svg>
 `, width, height, width, height, cx, cy, radius, fontSize, label)
 
-	return os.WriteFile(path, []byte(svg), 0o644)
+	return os.WriteFile(path, []byte(svg), 0o600)
 }
 
 func writeImage(path, label string) error {
@@ -67,7 +67,12 @@ func writeImage(path, label string) error {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	fillRect(img, color.RGBA{R: 255, A: 255})
 	drawFilledCircle(img, cx, cy, radius, color.RGBA{A: 255})
-	drawTextCentered(img, label, scale, color.RGBA{R: 255, G: 255, B: 255, A: 255})
+	drawTextCentered(
+		img,
+		label,
+		scale,
+		color.RGBA{R: 255, G: 255, B: 255, A: 255},
+	)
 
 	file, err := os.Create(path)
 	if err != nil {
@@ -126,9 +131,9 @@ func drawTextCentered(img *image.RGBA, text string, scale int, c color.RGBA) {
 }
 
 func drawGlyph(img *image.RGBA, x0, y0 int, ch rune, scale int, c color.RGBA) {
-	rows, ok := glyphs[ch]
+	rows, ok := glyphMap[ch]
 	if !ok {
-		rows = glyphs['?']
+		rows = glyphMap['?']
 	}
 	for y, row := range rows {
 		for x, bit := range row {
@@ -141,8 +146,8 @@ func drawGlyph(img *image.RGBA, x0, y0 int, ch rune, scale int, c color.RGBA) {
 }
 
 func fillBlock(img *image.RGBA, x0, y0, size int, c color.RGBA) {
-	for y := 0; y < size; y++ {
-		for x := 0; x < size; x++ {
+	for y := range size {
+		for x := range size {
 			px := x0 + x
 			py := y0 + y
 			if image.Pt(px, py).In(img.Bounds()) {
@@ -152,7 +157,8 @@ func fillBlock(img *image.RGBA, x0, y0, size int, c color.RGBA) {
 	}
 }
 
-var glyphs = map[rune][]string{
+//nolint:gochecknoglobals // Static glyph lookup table for deterministic test image rendering.
+var glyphMap = map[rune][]string{
 	'?': {"11111", "00001", "00110", "00100", "00000", "00100", "00000"},
 	'B': {"11110", "10001", "11110", "10001", "10001", "10001", "11110"},
 	'F': {"11111", "10000", "11110", "10000", "10000", "10000", "10000"},

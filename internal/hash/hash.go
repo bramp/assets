@@ -7,6 +7,7 @@ import (
 	"os"
 )
 
+// FileSHA256 returns the SHA-256 digest of a file as a lowercase hex string.
 func FileSHA256(path string) (string, error) {
 	hash, _, err := FileSHA256AndSize(path)
 	return hash, err

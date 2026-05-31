@@ -3,6 +3,7 @@ package manifest
 import (
 	"bytes"
 	_ "embed"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -19,30 +20,40 @@ var hexColorRe = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
 //go:embed defaults.yaml
 var builtinDefaultsYAML string
 
-// StrictLegalFields are validated only when strict mode is enabled.
+const (
+	scaleModeFit          = "fit"
+	backgroundTransparent = "transparent"
+)
+
+//nolint:gochecknoglobals // Exposed for external validation tooling and docs.
 var StrictLegalFields = []string{"owner", "copyright", "license"}
 
+// Manifest declares project metadata and source-to-output asset rules.
 type Manifest struct {
 	Meta   Meta    `yaml:"meta"`
 	Assets []Asset `yaml:"assets"`
 }
 
+// Meta contains global project and render configuration.
 type Meta struct {
 	Project string       `yaml:"project"`
 	Render  RenderConfig `yaml:"render"`
 }
 
+// RenderConfig contains default and named pipeline step definitions.
 type RenderConfig struct {
 	Defaults         RenderDefaults          `yaml:"defaults"`
 	Tools            map[string]PipelineStep `yaml:"tools"`
 	OptimizeByFormat map[string]string       `yaml:"optimize_by_format"`
 }
 
+// RenderDefaults configures global render behavior.
 type RenderDefaults struct {
 	Tools                  ToolPreference `yaml:"tools"`
 	StrictRendererVersions bool           `yaml:"strict_renderer_versions"`
 }
 
+// Asset describes one source file and all generated outputs derived from it.
 type Asset struct {
 	ID        string   `yaml:"id"`
 	Source    string   `yaml:"source"`
@@ -52,6 +63,7 @@ type Asset struct {
 	Outputs   []Output `yaml:"outputs"`
 }
 
+// Output defines one generated file and its target dimensions/options.
 type Output struct {
 	Path    string  `yaml:"path"`
 	Width   int     `yaml:"width"`
@@ -59,19 +71,23 @@ type Output struct {
 	Options Options `yaml:"options"`
 }
 
+// Options contains per-output render controls.
 type Options struct {
-	ScaleMode     string                 `yaml:"scale_mode"`
-	Background    string                 `yaml:"background"`
-	Tools         ToolPreference         `yaml:"tools"`
-	FormatOptions map[string]interface{} `yaml:"format_options"`
+	ScaleMode     string         `yaml:"scale_mode"`
+	Background    string         `yaml:"background"`
+	Tools         ToolPreference `yaml:"tools"`
+	FormatOptions map[string]any `yaml:"format_options"`
 }
 
 // ToolPreference accepts either a single scalar tool name or a YAML list.
 // Scalars are normalized to a one-item list to keep resolution logic consistent.
 type ToolPreference []string
 
+// UnmarshalYAML decodes a string or list YAML value into a normalized tool list.
 func (p *ToolPreference) UnmarshalYAML(value *yaml.Node) error {
 	switch value.Kind {
+	case yaml.DocumentNode, yaml.MappingNode, yaml.AliasNode:
+		return errors.New("tool preference must be a string or list")
 	case yaml.ScalarNode:
 		norm := strings.TrimSpace(value.Value)
 		if norm == "" {
@@ -84,17 +100,18 @@ func (p *ToolPreference) UnmarshalYAML(value *yaml.Node) error {
 		items := make([]string, 0, len(value.Content))
 		for _, node := range value.Content {
 			if node.Kind != yaml.ScalarNode {
-				return fmt.Errorf("tool preference entries must be strings")
+				return errors.New("tool preference entries must be strings")
 			}
 			items = append(items, strings.TrimSpace(node.Value))
 		}
 		*p = ToolPreference(items)
 		return nil
 	default:
-		return fmt.Errorf("tool preference must be a string or list")
+		return errors.New("tool preference must be a string or list")
 	}
 }
 
+// PipelineStep describes one render tool invocation capability.
 type PipelineStep struct {
 	Tool       string   `yaml:"tool"`
 	Command    string   `yaml:"command"`
@@ -104,15 +121,18 @@ type PipelineStep struct {
 	SetsSize   string   `yaml:"sets_size"`
 }
 
+// ValidationConfig controls strictness and filesystem context for validation.
 type ValidationConfig struct {
 	Strict  bool
 	BaseDir string
 }
 
+// BuiltinRenderDefaultsYAML returns the embedded default render config snippet.
 func BuiltinRenderDefaultsYAML() string {
 	return builtinDefaultsYAML
 }
 
+// LoadFile reads, merges defaults, and decodes a manifest from disk.
 func LoadFile(path string) (*Manifest, error) {
 	baseDoc, err := defaultManifestDoc()
 	if err != nil {
@@ -123,7 +143,7 @@ func LoadFile(path string) (*Manifest, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	userDoc, err := decodeYAMLDocument(f)
 	if err != nil {
@@ -146,7 +166,7 @@ func defaultManifestDoc() (*yaml.Node, error) {
 	}
 	renderNode, ok := mappingValue(defaultsDoc.Content[0], "render")
 	if !ok {
-		return nil, fmt.Errorf("defaults.yaml missing render block")
+		return nil, errors.New("defaults.yaml missing render block")
 	}
 
 	return &yaml.Node{
@@ -176,12 +196,12 @@ func decodeYAMLDocument(r io.Reader) (*yaml.Node, error) {
 		return nil, err
 	}
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 {
-		return nil, fmt.Errorf("expected a single YAML document")
+		return nil, errors.New("expected a single YAML document")
 	}
 	return &doc, nil
 }
 
-func decodeYAMLNodeKnownFields(doc *yaml.Node, out interface{}) error {
+func decodeYAMLNodeKnownFields(doc *yaml.Node, out any) error {
 	b, err := yaml.Marshal(doc)
 	if err != nil {
 		return err
@@ -259,11 +279,14 @@ func cloneYAMLNode(n *yaml.Node) *yaml.Node {
 	return &clone
 }
 
+// Validate checks manifest structure, references, and configured policy constraints.
+//
+//nolint:gocognit // Validation accumulates many independent checks for complete error reporting.
 func (m *Manifest) Validate(cfg ValidationConfig) []error {
 	var errs []error
 
 	if strings.TrimSpace(m.Meta.Project) == "" {
-		errs = append(errs, fmt.Errorf("meta.project is required"))
+		errs = append(errs, errors.New("meta.project is required"))
 	}
 
 	renderErrs := validateRenderConfig(m.Meta.Render)
@@ -272,7 +295,7 @@ func (m *Manifest) Validate(cfg ValidationConfig) []error {
 	}
 
 	if len(m.Assets) == 0 {
-		errs = append(errs, fmt.Errorf("assets must contain at least one asset"))
+		errs = append(errs, errors.New("assets must contain at least one asset"))
 		return errs
 	}
 
@@ -315,7 +338,10 @@ func (m *Manifest) Validate(cfg ValidationConfig) []error {
 
 			if out.Path != "" {
 				if first, ok := seenOutputs[out.Path]; ok {
-					errs = append(errs, fmt.Errorf("%s: duplicate output path %q (already used by %s)", outputRef, out.Path, first))
+					errs = append(
+						errs,
+						fmt.Errorf("%s: duplicate output path %q (already used by %s)", outputRef, out.Path, first),
+					)
 				} else {
 					seenOutputs[out.Path] = outputRef
 				}
@@ -329,13 +355,22 @@ func (m *Manifest) Validate(cfg ValidationConfig) []error {
 			}
 
 			if !validScaleMode(out.Options.ScaleMode) {
-				errs = append(errs, fmt.Errorf("%s: options.scale_mode must be one of fit, fill, stretch, crop", outputRef))
+				errs = append(
+					errs,
+					fmt.Errorf("%s: options.scale_mode must be one of fit, fill, stretch, crop", outputRef),
+				)
 			}
 			if !validBackground(out.Options.Background) {
 				errs = append(errs, fmt.Errorf("%s: options.background must be transparent or #RRGGBB", outputRef))
 			}
 
-			stageErrs := validateStagePreference(outputRef+" options.tools", out.Options.Tools, m.Meta.Render.Tools, true, true)
+			stageErrs := validateStagePreference(
+				outputRef+" options.tools",
+				out.Options.Tools,
+				m.Meta.Render.Tools,
+				true,
+				true,
+			)
 			errs = append(errs, stageErrs...)
 		}
 	}
@@ -356,7 +391,7 @@ func assetRef(a Asset, idx int) string {
 
 func validScaleMode(v string) bool {
 	switch v {
-	case "fit", "fill", "stretch", "crop":
+	case scaleModeFit, "fill", "stretch", "crop":
 		return true
 	default:
 		return false
@@ -364,7 +399,7 @@ func validScaleMode(v string) bool {
 }
 
 func validBackground(v string) bool {
-	if v == "transparent" {
+	if v == backgroundTransparent {
 		return true
 	}
 	return hexColorRe.MatchString(v)
@@ -381,7 +416,7 @@ func validateRenderConfig(cfg RenderConfig) []error {
 	for ext, tool := range cfg.OptimizeByFormat {
 		normExt := strings.TrimSpace(ext)
 		if normExt == "" {
-			errs = append(errs, fmt.Errorf("meta.render.optimize_by_format contains an empty extension key"))
+			errs = append(errs, errors.New("meta.render.optimize_by_format contains an empty extension key"))
 			continue
 		}
 		if !strings.HasPrefix(normExt, ".") {
@@ -393,7 +428,10 @@ func validateRenderConfig(cfg RenderConfig) []error {
 			continue
 		}
 		if _, ok := cfg.Tools[normTool]; !ok {
-			errs = append(errs, fmt.Errorf("meta.render.optimize_by_format[%q] references unknown optimize tool %q", ext, normTool))
+			errs = append(
+				errs,
+				fmt.Errorf("meta.render.optimize_by_format[%q] references unknown optimize tool %q", ext, normTool),
+			)
 		}
 	}
 
@@ -404,7 +442,13 @@ func validateStageOrder(prefix string, order ToolPreference, registry map[string
 	return validateStagePreference(prefix, order, registry, true, true)
 }
 
-func validateStagePreference(prefix string, pref ToolPreference, registry map[string]PipelineStep, allowAuto bool, allowDisable bool) []error {
+func validateStagePreference(
+	prefix string,
+	pref ToolPreference,
+	registry map[string]PipelineStep,
+	allowAuto bool,
+	allowDisable bool,
+) []error {
 	var errs []error
 	for i, name := range pref {
 		norm := strings.TrimSpace(name)
@@ -461,7 +505,10 @@ func validatePipelineStepScaleModes(prefix string, step PipelineStep) []error {
 	for i, mode := range step.ScaleModes {
 		norm := strings.TrimSpace(mode)
 		if !validScaleModeValue(norm) {
-			errs = append(errs, fmt.Errorf("%s.scale_modes[%d] %q must be '*' or one of fit, fill, stretch, crop", prefix, i, mode))
+			errs = append(
+				errs,
+				fmt.Errorf("%s.scale_modes[%d] %q must be '*' or one of fit, fill, stretch, crop", prefix, i, mode),
+			)
 		}
 	}
 	return errs
@@ -480,8 +527,16 @@ func validateStageRegistry(prefix string, registry map[string]PipelineStep) []er
 		if strings.TrimSpace(step.Command) == "" {
 			errs = append(errs, fmt.Errorf("%s[%q]: command is required", prefix, name))
 		}
-		if strings.TrimSpace(step.SetsSize) != "" && !strings.Contains(step.Command, "{sets_size}") && !commandUsesTargetSizePlaceholders(step.Command) {
-			errs = append(errs, fmt.Errorf("%s[%q]: sets_size is configured but command does not use {sets_size} or width/height placeholders", prefix, name))
+		if strings.TrimSpace(step.SetsSize) != "" && !strings.Contains(step.Command, "{sets_size}") &&
+			!commandUsesTargetSizePlaceholders(step.Command) {
+			errs = append(
+				errs,
+				fmt.Errorf(
+					"%s[%q]: sets_size is configured but command does not use {sets_size} or width/height placeholders",
+					prefix,
+					name,
+				),
+			)
 		}
 		errs = append(errs, validatePipelineStepSupports(fmt.Sprintf("%s[%q]", prefix, name), step)...)
 		errs = append(errs, validatePipelineStepScaleModes(fmt.Sprintf("%s[%q]", prefix, name), step)...)
@@ -505,6 +560,6 @@ func validateToolRegistry(prefix string, registry map[string]PipelineStep) []err
 }
 
 func commandUsesTargetSizePlaceholders(cmd string) bool {
-	return strings.Contains(cmd, "{width}") || strings.Contains(cmd, "{height}") || strings.Contains(cmd, "{WIDTH}") || strings.Contains(cmd, "{HEIGHT}")
+	return strings.Contains(cmd, "{width}") || strings.Contains(cmd, "{height}") || strings.Contains(cmd, "{WIDTH}") ||
+		strings.Contains(cmd, "{HEIGHT}")
 }
-

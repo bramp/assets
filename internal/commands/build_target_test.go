@@ -1,4 +1,4 @@
-package commands
+package commands_test
 
 import (
 	"bytes"
@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/bramp/assets/internal/commands"
 )
 
 func TestRunBuildTarget_Success(t *testing.T) {
@@ -50,7 +52,7 @@ func TestRunBuildTarget_Success(t *testing.T) {
 	// TODO(bramp): Should we create a temp directory for the output and lockfile instead of writing to the manifest directory?
 
 	var stderr bytes.Buffer
-	exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr)
+	exit := commands.RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr)
 	if exit != 0 {
 		t.Fatalf("expected exit 0, got %d, stderr=%q", exit, stderr.String())
 	}
@@ -69,30 +71,31 @@ func TestRunBuildTarget_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read lockfile: %v", err)
 	}
-	var lockData map[string]interface{}
-	if err := json.Unmarshal(lockBytes, &lockData); err != nil {
-		t.Fatalf("unmarshal lockfile: %v", err)
+	var lockData map[string]any
+	unmarshalErr := json.Unmarshal(lockBytes, &lockData)
+	if unmarshalErr != nil {
+		t.Fatalf("unmarshal lockfile: %v", unmarshalErr)
 	}
-	files, ok := lockData["files"].(map[string]interface{})
+	files, ok := lockData["files"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected files map in lockfile: %s", string(lockBytes))
 	}
-	oData, ok := files["out/out.txt"].(map[string]interface{})
+	oData, ok := files["out/out.txt"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected output entry in lockfile: %s", string(lockBytes))
 	}
-	sources, ok := oData["sources"].(map[string]interface{})
+	sources, ok := oData["sources"].(map[string]any)
 	if !ok || len(sources) != 1 {
 		t.Fatalf("expected one source entry, got %v", oData["sources"])
 	}
-	sourceEntry, ok := sources["raw/in.txt"].(map[string]interface{})
+	sourceEntry, ok := sources["raw/in.txt"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected source key raw/in.txt, got %v", sources)
 	}
 	if sourceEntry["size_bytes"] == nil {
 		t.Fatalf("expected source size_bytes field, got %v", sourceEntry)
 	}
-	if _, ok := oData["sha256"].(string); !ok {
+	if _, hasSHA := oData["sha256"].(string); !hasSHA {
 		t.Fatalf("expected sha256 field, got %v", oData["sha256"])
 	}
 	if _, hasConfigHash := oData["config_hash"]; hasConfigHash {
@@ -142,11 +145,13 @@ func TestRunBuildTarget_CommandOutputVerbosity(t *testing.T) {
 	}
 
 	t.Run("default prints commands", func(t *testing.T) {
+		t.Parallel()
+
 		dir := t.TempDir()
 		manifestPath := newManifestPath(t, dir)
 
 		var stderr bytes.Buffer
-		exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr)
+		exit := commands.RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr)
 		if exit != 0 {
 			t.Fatalf("expected exit 0, got %d, stderr=%q", exit, stderr.String())
 		}
@@ -156,11 +161,16 @@ func TestRunBuildTarget_CommandOutputVerbosity(t *testing.T) {
 	})
 
 	t.Run("quiet suppresses command output", func(t *testing.T) {
+		t.Parallel()
+
 		dir := t.TempDir()
 		manifestPath := newManifestPath(t, dir)
 
 		var stderr bytes.Buffer
-		exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt", "--quiet"}, &stderr)
+		exit := commands.RunBuildTarget(
+			[]string{"--manifest", manifestPath, "--target", "out/out.txt", "--quiet"},
+			&stderr,
+		)
 		if exit != 0 {
 			t.Fatalf("expected exit 0, got %d, stderr=%q", exit, stderr.String())
 		}
@@ -201,7 +211,7 @@ assets:
 	}
 
 	var stderr bytes.Buffer
-	exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/missing.txt"}, &stderr)
+	exit := commands.RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/missing.txt"}, &stderr)
 	if exit != 1 {
 		t.Fatalf("expected exit 1, got %d", exit)
 	}
@@ -214,12 +224,12 @@ func TestRunBuildTarget_MissingTargetAndPositionalArg(t *testing.T) {
 	t.Parallel()
 
 	var stderr bytes.Buffer
-	if exit := RunBuildTarget([]string{}, &stderr); exit != 1 {
+	if exit := commands.RunBuildTarget([]string{}, &stderr); exit != 1 {
 		t.Fatalf("expected missing-target failure, got %d", exit)
 	}
 
 	stderr.Reset()
-	if exit := RunBuildTarget([]string{"--target", "x", "extra"}, &stderr); exit != 1 {
+	if exit := commands.RunBuildTarget([]string{"--target", "x", "extra"}, &stderr); exit != 1 {
 		t.Fatalf("expected positional-arg failure, got %d", exit)
 	}
 }
@@ -263,22 +273,33 @@ func TestRunBuildTarget_PipelineFailure(t *testing.T) {
 	}
 
 	var stderr bytes.Buffer
-	if exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr); exit != 1 {
+	if exit := commands.RunBuildTarget(
+		[]string{"--manifest", manifestPath, "--target", "out/out.txt"},
+		&stderr,
+	); exit != 1 {
 		t.Fatalf("expected pipeline failure, got %d", exit)
 	}
 }
 
+//nolint:gocognit // Table-like failure branch assertions are clearer expanded.
 func TestRunBuildTarget_OtherFailureBranches(t *testing.T) {
 	t.Parallel()
 
 	t.Run("manifest load failure", func(t *testing.T) {
+		t.Parallel()
+
 		var stderr bytes.Buffer
-		if exit := RunBuildTarget([]string{"--manifest", "missing.yaml", "--target", "out/out.txt"}, &stderr); exit != 1 {
+		if exit := commands.RunBuildTarget(
+			[]string{"--manifest", "missing.yaml", "--target", "out/out.txt"},
+			&stderr,
+		); exit != 1 {
 			t.Fatalf("expected load failure, got %d", exit)
 		}
 	})
 
 	t.Run("pipeline resolve failure", func(t *testing.T) {
+		t.Parallel()
+
 		dir := t.TempDir()
 		src := filepath.Join(dir, "raw", "in.txt")
 		if err := os.MkdirAll(filepath.Dir(src), 0o755); err != nil {
@@ -307,12 +328,17 @@ assets:
 		}
 
 		var stderr bytes.Buffer
-		if exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr); exit != 1 {
+		if exit := commands.RunBuildTarget(
+			[]string{"--manifest", manifestPath, "--target", "out/out.txt"},
+			&stderr,
+		); exit != 1 {
 			t.Fatalf("expected resolve failure, got %d", exit)
 		}
 	})
 
 	t.Run("source hash failure", func(t *testing.T) {
+		t.Parallel()
+
 		dir := t.TempDir()
 		manifest := "meta:\n" +
 			"  project: \"test\"\n" +
@@ -341,12 +367,17 @@ assets:
 		}
 
 		var stderr bytes.Buffer
-		if exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt"}, &stderr); exit != 1 {
+		if exit := commands.RunBuildTarget(
+			[]string{"--manifest", manifestPath, "--target", "out/out.txt"},
+			&stderr,
+		); exit != 1 {
 			t.Fatalf("expected source hash failure, got %d", exit)
 		}
 	})
 
 	t.Run("lockfile load failure", func(t *testing.T) {
+		t.Parallel()
+
 		dir := t.TempDir()
 		src := filepath.Join(dir, "raw", "in.txt")
 		if err := os.MkdirAll(filepath.Dir(src), 0o755); err != nil {
@@ -383,7 +414,10 @@ assets:
 		}
 
 		var stderr bytes.Buffer
-		if exit := RunBuildTarget([]string{"--manifest", manifestPath, "--target", "out/out.txt", "--lock", "."}, &stderr); exit != 1 {
+		if exit := commands.RunBuildTarget(
+			[]string{"--manifest", manifestPath, "--target", "out/out.txt", "--lock", "."},
+			&stderr,
+		); exit != 1 {
 			t.Fatalf("expected lockfile load failure, got %d", exit)
 		}
 	})

@@ -1,27 +1,29 @@
-package commands
+package commands_test
 
 import (
 	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/bramp/assets/internal/commands"
 )
 
 func TestRunCheck_ArgumentAndLoadErrors(t *testing.T) {
 	t.Parallel()
 
 	var stderr bytes.Buffer
-	if exit := RunCheck([]string{"--unknown"}, &stderr); exit != 1 {
+	if exit := commands.RunCheck([]string{"--unknown"}, &stderr); exit != 1 {
 		t.Fatalf("expected parse failure exit 1, got %d", exit)
 	}
 
 	stderr.Reset()
-	if exit := RunCheck([]string{"--manifest", "missing.yaml"}, &stderr); exit != 1 {
+	if exit := commands.RunCheck([]string{"--manifest", "missing.yaml"}, &stderr); exit != 1 {
 		t.Fatalf("expected load failure exit 1, got %d", exit)
 	}
 
 	stderr.Reset()
-	if exit := RunCheck([]string{"extra-positional"}, &stderr); exit != 1 {
+	if exit := commands.RunCheck([]string{"extra-positional"}, &stderr); exit != 1 {
 		t.Fatalf("expected positional arg failure exit 1, got %d", exit)
 	}
 }
@@ -49,7 +51,7 @@ assets:
 	}
 
 	var stderr bytes.Buffer
-	if exit := RunCheck([]string{"--manifest", path}, &stderr); exit != 1 {
+	if exit := commands.RunCheck([]string{"--manifest", path}, &stderr); exit != 1 {
 		t.Fatalf("expected validation failure, got %d", exit)
 	}
 	if stderr.Len() == 0 {

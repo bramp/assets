@@ -1,4 +1,4 @@
-package commands
+package commands_test
 
 import (
 	"bytes"
@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/bramp/assets/internal/commands"
 )
 
 func TestRunGen_GoldenOutput(t *testing.T) {
@@ -21,7 +23,7 @@ func TestRunGen_GoldenOutput(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	exitCode := RunGen([]string{"--manifest", manifestPath}, &stdout, &stderr)
+	exitCode := commands.RunGen([]string{"--manifest", manifestPath}, &stdout, &stderr)
 	if exitCode != 0 {
 		t.Fatalf("expected exit 0, got %d, stderr=%q", exitCode, stderr.String())
 	}
@@ -40,7 +42,7 @@ func TestRunGen_LoadError(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	exitCode := RunGen([]string{"--manifest", "testdata/does-not-exist.yaml"}, &stdout, &stderr)
+	exitCode := commands.RunGen([]string{"--manifest", "testdata/does-not-exist.yaml"}, &stdout, &stderr)
 	if exitCode != 1 {
 		t.Fatalf("expected exit 1, got %d", exitCode)
 	}
@@ -58,13 +60,13 @@ func TestRunGen_ArgErrors(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if exit := RunGen([]string{"--unknown"}, &stdout, &stderr); exit != 1 {
+	if exit := commands.RunGen([]string{"--unknown"}, &stdout, &stderr); exit != 1 {
 		t.Fatalf("expected parse error, got %d", exit)
 	}
 
 	stdout.Reset()
 	stderr.Reset()
-	if exit := RunGen([]string{"extra"}, &stdout, &stderr); exit != 1 {
+	if exit := commands.RunGen([]string{"extra"}, &stdout, &stderr); exit != 1 {
 		t.Fatalf("expected positional argument error, got %d", exit)
 	}
 }
@@ -107,7 +109,7 @@ assets:
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	exitCode := RunGen([]string{"--manifest", manifestPath}, &stdout, &stderr)
+	exitCode := commands.RunGen([]string{"--manifest", manifestPath}, &stdout, &stderr)
 	if exitCode != 0 {
 		t.Fatalf("expected exit 0, got %d, stderr=%q", exitCode, stderr.String())
 	}
@@ -158,7 +160,7 @@ assets:
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	exitCode := RunGen([]string{"--manifest", manifestPath}, &stdout, &stderr)
+	exitCode := commands.RunGen([]string{"--manifest", manifestPath}, &stdout, &stderr)
 	if exitCode != 0 {
 		t.Fatalf("expected exit 0, got %d, stderr=%q", exitCode, stderr.String())
 	}
@@ -208,7 +210,7 @@ assets:
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	exitCode := RunGen([]string{"--manifest", manifestPath}, &stdout, &stderr)
+	exitCode := commands.RunGen([]string{"--manifest", manifestPath}, &stdout, &stderr)
 	if exitCode != 0 {
 		t.Fatalf("expected exit 0, got %d, stderr=%q", exitCode, stderr.String())
 	}

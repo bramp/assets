@@ -1,3 +1,4 @@
+//nolint:testpackage // Manifest tests exercise unexported helpers.
 package manifest
 
 import (
@@ -47,7 +48,7 @@ assets:
 	if err := os.MkdirAll(filepath.Join(dir, "raw"), 0o755); err != nil {
 		t.Fatalf("mkdir raw: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "raw", "in.svg"), []byte("<svg/>") , 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "raw", "in.svg"), []byte("<svg/>"), 0o644); err != nil {
 		t.Fatalf("write source: %v", err)
 	}
 	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
@@ -96,7 +97,7 @@ assets:
 	if err := os.MkdirAll(filepath.Join(dir, "raw"), 0o755); err != nil {
 		t.Fatalf("mkdir raw: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "raw", "in.svg"), []byte("<svg/>") , 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "raw", "in.svg"), []byte("<svg/>"), 0o644); err != nil {
 		t.Fatalf("write source: %v", err)
 	}
 	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
@@ -203,7 +204,8 @@ assets:
 	if err == nil {
 		t.Fatal("expected decode error for legacy render keys")
 	}
-	if !strings.Contains(err.Error(), "field profile not found") && !strings.Contains(err.Error(), "field profiles not found") {
+	if !strings.Contains(err.Error(), "field profile not found") &&
+		!strings.Contains(err.Error(), "field profiles not found") {
 		t.Fatalf("expected unknown legacy-field error, got %v", err)
 	}
 }

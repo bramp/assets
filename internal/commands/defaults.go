@@ -8,11 +8,14 @@ import (
 	"github.com/bramp/assets/internal/manifest"
 )
 
-var defaultsYAML = "# Suggested render defaults for assets.yaml\n" +
-	"# Copy this under meta.render in your manifest.\n" +
-	"# Graph tool preferences are order-based tie-breakers for shortest compatible paths.\n" +
-	manifest.BuiltinRenderDefaultsYAML()
+func defaultsYAML() string {
+	return "# Suggested render defaults for assets.yaml\n" +
+		"# Copy this under meta.render in your manifest.\n" +
+		"# Graph tool preferences are order-based tie-breakers for shortest compatible paths.\n" +
+		manifest.BuiltinRenderDefaultsYAML()
+}
 
+// RunDefaults prints built-in render defaults for assets manifests.
 func RunDefaults(args []string, stdout io.Writer, stderr io.Writer) int {
 	fs := flag.NewFlagSet("defaults", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -25,7 +28,7 @@ func RunDefaults(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 1
 	}
 
-	_, _ = io.WriteString(stdout, defaultsYAML)
+	_, _ = io.WriteString(stdout, defaultsYAML())
 
 	return 0
 }

@@ -25,3 +25,25 @@ package lockfile
 //   - Incremental updates: upserts mutate only touched generated file entries.
 //   - Reproducibility checks: source hashes + provenance + output hash/size.
 //   - Human-readable diagnostics: schema should aid debugging in CI failures.
+//
+// Concurrency controls
+//
+// Writes use a cooperative, optimistic concurrency model:
+//   - Cooperative lock: writers use a sidecar advisory lock file
+//     (<lockfile>.lock) to serialize cooperating processes.
+//   - Optimistic CAS: writers compare the hash of the on-disk lockfile against
+//     the hash captured at session open before replacing bytes.
+//   - Atomic replace: writes stage a temp file in the same directory and use
+//     rename to atomically replace the lockfile.
+//   - Retry policy: callers may use Session.SaveWithRetry to re-read base state
+//     and retry queued mutations after conflicts.
+//
+// Concurrency scenarios
+//
+//   - Two writers update different outputs at the same time:
+//     with Session.SaveWithRetry both entries should converge into the lockfile
+//     (one write wins first, the other retries against fresh state).
+//   - Two writers update the same output at the same time:
+//     current behavior is last-writer-wins when retry is enabled; without retry,
+//     one writer receives ErrConflict.
+//

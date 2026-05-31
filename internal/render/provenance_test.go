@@ -1,3 +1,4 @@
+//nolint:testpackage // Render tests exercise unexported helpers.
 package render
 
 import (

@@ -1,6 +1,7 @@
 package render
 
 import (
+	"context"
 	"os/exec"
 	"sort"
 	"strings"
@@ -9,11 +10,12 @@ import (
 	"github.com/bramp/assets/internal/manifest"
 )
 
+// CollectProvenance records command chain and tool fingerprints for resolved steps.
 func CollectProvenance(steps []manifest.PipelineStep) *lockfile.Provenance {
 	chain := make([]string, 0, len(steps))
 	tools := map[string]string{}
 
-	if out, err := exec.Command("uname", "-a").CombinedOutput(); err == nil {
+	if out, err := exec.CommandContext(context.Background(), "uname", "-a").CombinedOutput(); err == nil {
 		tools["host_uname"] = strings.TrimSpace(string(out))
 	}
 
@@ -51,7 +53,7 @@ func CollectProvenance(steps []manifest.PipelineStep) *lockfile.Provenance {
 
 func commandVersion(cmdName string) string {
 	for _, args := range [][]string{{"--version"}, {"version"}} {
-		out, err := exec.Command(cmdName, args...).CombinedOutput()
+		out, err := exec.CommandContext(context.Background(), cmdName, args...).CombinedOutput()
 		if err != nil {
 			continue
 		}

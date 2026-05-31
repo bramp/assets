@@ -1,3 +1,4 @@
+//nolint:testpackage // Render tests exercise unexported helpers.
 package render
 
 import (
@@ -34,7 +35,12 @@ func TestResolvePipeline_PreferenceTieBreak(t *testing.T) {
 		},
 	}
 
-	steps, err := ResolvePipelineWithOptions(m, "raw/logo.svg", manifest.Output{Path: "out/logo.png"}, ResolveOptions{CheckAvailability: false})
+	steps, err := ResolvePipelineWithOptions(
+		m,
+		"raw/logo.svg",
+		manifest.Output{Path: "out/logo.png"},
+		ResolveOptions{CheckAvailability: false},
+	)
 	if err != nil {
 		t.Fatalf("resolve pipeline: %v", err)
 	}
@@ -107,11 +113,15 @@ func TestResolvePipeline_ToolAvailabilityMatrix(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			steps, err := ResolvePipelineWithOptions(tc.manifest, "raw/logo.svg", manifest.Output{Path: "out/logo.png"}, ResolveOptions{CheckAvailability: tc.checkAvailability})
+			steps, err := ResolvePipelineWithOptions(
+				tc.manifest,
+				"raw/logo.svg",
+				manifest.Output{Path: "out/logo.png"},
+				ResolveOptions{CheckAvailability: tc.checkAvailability},
+			)
 			if tc.wantErrLike != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.wantErrLike) {
 					t.Fatalf("expected error containing %q, got %v", tc.wantErrLike, err)
@@ -152,7 +162,7 @@ func TestFindTarget(t *testing.T) {
 		t.Fatalf("unexpected target spec: %+v", spec)
 	}
 
-	if _, err := FindTarget(m, "out/missing.txt"); err == nil {
+	if _, findErr := FindTarget(m, "out/missing.txt"); findErr == nil {
 		t.Fatal("expected missing target error")
 	}
 }
@@ -192,6 +202,8 @@ func TestExecutePipeline_FailureAndMissingOutput(t *testing.T) {
 	}
 
 	t.Run("step fails", func(t *testing.T) {
+		t.Parallel()
+
 		ctx := BuildContext{InputPath: input, OutputPath: filepath.Join(dir, "out-fail.txt")}
 		steps := []manifest.PipelineStep{{Tool: "sh", Command: "false"}}
 		err := ExecutePipeline(steps, ctx)
@@ -201,6 +213,8 @@ func TestExecutePipeline_FailureAndMissingOutput(t *testing.T) {
 	})
 
 	t.Run("no output produced", func(t *testing.T) {
+		t.Parallel()
+
 		ctx := BuildContext{InputPath: input, OutputPath: filepath.Join(dir, "out-missing.txt")}
 		steps := []manifest.PipelineStep{{Tool: "sh", Command: "echo hi >/dev/null"}}
 		err := ExecutePipeline(steps, ctx)
@@ -210,7 +224,12 @@ func TestExecutePipeline_FailureAndMissingOutput(t *testing.T) {
 	})
 
 	t.Run("missing input", func(t *testing.T) {
-		ctx := BuildContext{InputPath: filepath.Join(dir, "does-not-exist.txt"), OutputPath: filepath.Join(dir, "out-missing-input.txt")}
+		t.Parallel()
+
+		ctx := BuildContext{
+			InputPath:  filepath.Join(dir, "does-not-exist.txt"),
+			OutputPath: filepath.Join(dir, "out-missing-input.txt"),
+		}
 		steps := []manifest.PipelineStep{{Tool: "cp", Command: "cp {input} {output}"}}
 		err := ExecutePipeline(steps, ctx)
 		if err == nil || !strings.Contains(err.Error(), "input") {
@@ -219,6 +238,8 @@ func TestExecutePipeline_FailureAndMissingOutput(t *testing.T) {
 	})
 
 	t.Run("empty output rejected", func(t *testing.T) {
+		t.Parallel()
+
 		ctx := BuildContext{InputPath: input, OutputPath: filepath.Join(dir, "out-empty.txt")}
 		steps := []manifest.PipelineStep{{Tool: "sh", Command: ": > {output}"}}
 		err := ExecutePipeline(steps, ctx)
@@ -265,6 +286,7 @@ func TestExpandAndShellQuote(t *testing.T) {
 	}
 }
 
+//nolint:gocognit // Expanded assertions keep command-chain expectations explicit.
 func TestResolvePipeline_CommandChainTable(t *testing.T) {
 	t.Parallel()
 
@@ -334,7 +356,6 @@ func TestResolvePipeline_CommandChainTable(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -344,7 +365,12 @@ func TestResolvePipeline_CommandChainTable(t *testing.T) {
 				source = "from.png"
 			}
 
-			steps, err := ResolvePipelineWithOptions(tc.manifest, source, output, ResolveOptions{CheckAvailability: tc.checkAvailability})
+			steps, err := ResolvePipelineWithOptions(
+				tc.manifest,
+				source,
+				output,
+				ResolveOptions{CheckAvailability: tc.checkAvailability},
+			)
 			if tc.wantErrLike != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.wantErrLike) {
 					t.Fatalf("expected error containing %q, got %v", tc.wantErrLike, err)
@@ -367,7 +393,13 @@ func TestResolvePipeline_CommandChainTable(t *testing.T) {
 			})
 
 			if len(gotCommands) != len(tc.wantCommands) {
-				t.Fatalf("unexpected command count: got=%d want=%d got=%v want=%v", len(gotCommands), len(tc.wantCommands), gotCommands, tc.wantCommands)
+				t.Fatalf(
+					"unexpected command count: got=%d want=%d got=%v want=%v",
+					len(gotCommands),
+					len(tc.wantCommands),
+					gotCommands,
+					tc.wantCommands,
+				)
 			}
 			for i := range tc.wantCommands {
 				if gotCommands[i] != tc.wantCommands[i] {
@@ -406,7 +438,12 @@ func TestResolvePipeline_AppendsConfiguredTerminalOptimizer(t *testing.T) {
 		},
 	}
 
-	steps, err := ResolvePipelineWithOptions(m, "raw/logo.svg", manifest.Output{Path: "out/logo.png"}, ResolveOptions{CheckAvailability: false})
+	steps, err := ResolvePipelineWithOptions(
+		m,
+		"raw/logo.svg",
+		manifest.Output{Path: "out/logo.png"},
+		ResolveOptions{CheckAvailability: false},
+	)
 	if err != nil {
 		t.Fatalf("resolve pipeline: %v", err)
 	}
@@ -440,7 +477,12 @@ func TestResolvePipeline_DoesNotDuplicateTerminalOptimizer(t *testing.T) {
 		},
 	}
 
-	steps, err := ResolvePipelineWithOptions(m, "raw/logo.png", manifest.Output{Path: "out/logo.png"}, ResolveOptions{CheckAvailability: false})
+	steps, err := ResolvePipelineWithOptions(
+		m,
+		"raw/logo.png",
+		manifest.Output{Path: "out/logo.png"},
+		ResolveOptions{CheckAvailability: false},
+	)
 	if err != nil {
 		t.Fatalf("resolve pipeline: %v", err)
 	}

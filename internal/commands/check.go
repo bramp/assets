@@ -9,6 +9,7 @@ import (
 	"github.com/bramp/assets/internal/manifest"
 )
 
+// RunCheck validates manifest structure and semantics.
 func RunCheck(args []string, stderr io.Writer) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	fs.SetOutput(stderr)
