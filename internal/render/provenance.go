@@ -12,8 +12,17 @@ import (
 
 // CollectProvenance records command chain and tool fingerprints for resolved steps.
 func CollectProvenance(steps []manifest.PipelineStep) *lockfile.Provenance {
+	return CollectProvenanceWithRepo(steps, NewToolRepository())
+}
+
+// CollectProvenanceWithRepo records command chain and tool fingerprints for
+// resolved steps using the supplied tool repository.
+func CollectProvenanceWithRepo(steps []manifest.PipelineStep, toolRepo ToolRepository) *lockfile.Provenance {
 	chain := make([]string, 0, len(steps))
 	tools := map[string]string{}
+	if toolRepo == nil {
+		toolRepo = NewToolRepository()
+	}
 
 	if out, err := exec.CommandContext(context.Background(), "uname", "-a").CombinedOutput(); err == nil {
 		tools["host_uname"] = strings.TrimSpace(string(out))
@@ -26,8 +35,7 @@ func CollectProvenance(steps []manifest.PipelineStep) *lockfile.Provenance {
 			continue
 		}
 		seen[s.Tool] = true
-		// TODO(bramp): Add a version command to the tool config and use that instead of best-effort guessing, which may be slow and unreliable.
-		if v := commandVersion(s.Tool); v != "" {
+		if v := toolRepo.Version(s); v != "" {
 			tools[s.Tool] = v
 		}
 	}
@@ -50,22 +58,4 @@ func CollectProvenance(steps []manifest.PipelineStep) *lockfile.Provenance {
 	}
 
 	return &lockfile.Provenance{CommandChain: chainCopy, Tools: tools}
-}
-
-func commandVersion(cmdName string) string {
-	for _, args := range [][]string{{"--version"}, {"version"}} {
-		out, err := exec.CommandContext(context.Background(), cmdName, args...).CombinedOutput()
-		if err != nil {
-			continue
-		}
-		line := strings.TrimSpace(string(out))
-		if line == "" {
-			continue
-		}
-		if idx := strings.IndexByte(line, '\n'); idx >= 0 {
-			line = line[:idx]
-		}
-		return line
-	}
-	return ""
 }

@@ -47,7 +47,13 @@ func RunBuildTarget(args []string, stderr io.Writer) int {
 		return 1
 	}
 
-	steps, err := render.ResolvePipeline(m, spec.Asset.Source, spec.Output)
+	toolRepo := render.NewToolRepository()
+	steps, err := render.ResolvePipelineWithOptions(
+		m,
+		spec.Asset.Source,
+		spec.Output,
+		render.ResolveOptions{CheckAvailability: true, ToolRepo: toolRepo},
+	)
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "build: %v\n", err)
 		return 1
@@ -88,7 +94,7 @@ func RunBuildTarget(args []string, stderr io.Writer) int {
 	}
 
 	lockAbsPath := filepath.Join(baseDir, *lockPath)
-	provenance := render.CollectProvenance(steps)
+	provenance := render.CollectProvenanceWithRepo(steps, toolRepo)
 	if err := saveBuildResultWithRetry(
 		lockAbsPath,
 		spec.Asset.Source,

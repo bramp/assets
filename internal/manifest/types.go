@@ -120,6 +120,8 @@ type PipelineStep struct {
 	// SizeByMode overrides SizeTemplate by requested scale mode; "*" is a
 	// wildcard fallback used when the requested mode has no direct entry.
 	SizeByMode map[string]string `yaml:"size_by_mode"`
+	// VersionArgs overrides version probing args for provenance collection.
+	VersionArgs []string `yaml:"version_args"`
 }
 
 // ValidationConfig controls strictness and filesystem context for validation.

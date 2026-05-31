@@ -196,5 +196,11 @@ func validatePipelineStepSize(prefix, name string, step PipelineStep) []error {
 		}
 	}
 
+	for i, arg := range step.VersionArgs {
+		if strings.TrimSpace(arg) == "" {
+			errs = append(errs, fmt.Errorf("%s[%q]: version_args[%d] must not be empty", prefix, name, i))
+		}
+	}
+
 	return errs
 }

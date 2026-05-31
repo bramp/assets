@@ -30,10 +30,37 @@ func TestCollectProvenance(t *testing.T) {
 	}
 }
 
-func TestCommandVersion_UnknownTool(t *testing.T) {
+func TestCollectProvenance_UnknownToolVersion(t *testing.T) {
 	t.Parallel()
 
-	if got := commandVersion("definitely-not-a-real-tool-xyz"); got != "" {
+	steps := []manifest.PipelineStep{{
+		Tool:    "definitely-not-a-real-tool-xyz",
+		Command: "definitely-not-a-real-tool-xyz {input} {output}",
+	}}
+
+	p := CollectProvenance(steps)
+	if p == nil {
+		t.Fatal("expected provenance")
+	}
+	if got := p.Tools["definitely-not-a-real-tool-xyz"]; got != "" {
 		t.Fatalf("expected empty version for unknown tool, got %q", got)
+	}
+}
+
+func TestCollectProvenance_VersionArgsOverride(t *testing.T) {
+	t.Parallel()
+
+	steps := []manifest.PipelineStep{{
+		Tool:        "go",
+		Command:     "go version",
+		VersionArgs: []string{"version"},
+	}}
+
+	p := CollectProvenance(steps)
+	if p == nil {
+		t.Fatal("expected provenance")
+	}
+	if got := p.Tools["go"]; got == "" {
+		t.Fatal("expected go version when version_args override is set")
 	}
 }

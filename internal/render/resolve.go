@@ -3,7 +3,6 @@ package render
 import (
 	"errors"
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"github.com/bramp/assets/internal/manifest"
@@ -19,6 +18,7 @@ func appendTerminalOptimizer(
 	steps []manifest.PipelineStep,
 	outputExt string,
 	opts ResolveOptions,
+	toolRepo ToolRepository,
 ) ([]manifest.PipelineStep, error) {
 	normExt := strings.ToLower(strings.TrimSpace(outputExt))
 	if normExt == "" || len(cfg.OptimizeByFormat) == 0 {
@@ -55,7 +55,7 @@ func appendTerminalOptimizer(
 		return steps, nil
 	}
 
-	toolAvailable := buildAvailabilityChecker(opts)
+	toolAvailable := buildAvailabilityChecker(opts, toolRepo)
 	if !toolAvailable(optimizeStep.Tool) {
 		return nil, fmt.Errorf("optimizer tool %q for %q is not available", optimizeStep.Tool, normExt)
 	}
@@ -96,27 +96,18 @@ func supportsScaleMode(supported []string, mode string) bool {
 //nolint:funlen,gocognit // Path search weighs availability, format compatibility, and preferences.
 func resolveGraphPath(
 	tools map[string]manifest.PipelineStep,
-	order []string,
+	preferenceRank map[string]int,
 	sourceExt string,
 	outputExt string,
 	scaleMode string,
 	opts ResolveOptions,
+	toolRepo ToolRepository,
 ) ([]manifest.PipelineStep, error) {
 	if sourceExt == "" || outputExt == "" {
 		return nil, errors.New("unable to resolve conversion path for empty source/output format")
 	}
-	toolAvailable := buildAvailabilityChecker(opts)
+	toolAvailable := buildAvailabilityChecker(opts, toolRepo)
 	maxDepth := 4
-	preferenceRank := make(map[string]int, len(order))
-	for i, n := range order {
-		norm := strings.ToLower(strings.TrimSpace(n))
-		if norm == "" {
-			continue
-		}
-		if _, exists := preferenceRank[norm]; !exists {
-			preferenceRank[norm] = i
-		}
-	}
 
 	type pathState struct {
 		format string
@@ -198,11 +189,14 @@ func resolveGraphPath(
 //
 // Why: generation and tests can be host-agnostic, while execution paths can
 // enforce that required binaries exist.
-func buildAvailabilityChecker(opts ResolveOptions) func(string) bool {
+func buildAvailabilityChecker(opts ResolveOptions, repo ToolRepository) func(string) bool {
 	if !opts.CheckAvailability {
 		return func(string) bool { return true }
 	}
-	return binaryAvailable
+	if repo == nil {
+		repo = NewToolRepository()
+	}
+	return repo.Available
 }
 
 // firstCommandToken extracts the executable token from a tool declaration.
@@ -274,35 +268,39 @@ func graphPathScore(path []string, pref map[string]int) int {
 	return score
 }
 
-// buildPreferenceOrder computes the effective per-output preference order.
+// buildPreferenceRank computes a normalized preference rank map where lower
+// rank means higher priority.
 //
 // Why: output-level preferences can embed "auto" to splice defaults at a
 // specific position rather than replacing defaults entirely.
-func buildPreferenceOrder(outputPref manifest.ToolPreference, defaultPref manifest.ToolPreference) []string {
+func buildPreferenceRank(outputPref manifest.ToolPreference, defaultPref manifest.ToolPreference) map[string]int {
+	var expanded []string
 	if len(outputPref) == 0 {
-		return append([]string(nil), defaultPref...)
+		expanded = append([]string(nil), defaultPref...)
+	} else {
+		expanded = make([]string, 0, len(outputPref)+len(defaultPref))
+		for _, item := range outputPref {
+			norm := strings.TrimSpace(item)
+			if strings.EqualFold(norm, "auto") {
+				expanded = append(expanded, defaultPref...)
+				continue
+			}
+			expanded = append(expanded, item)
+		}
 	}
 
-	order := make([]string, 0, len(outputPref)+len(defaultPref))
-	for _, item := range outputPref {
+	rank := make(map[string]int, len(expanded))
+	for i, item := range expanded {
 		norm := strings.TrimSpace(item)
-		if strings.EqualFold(norm, "auto") {
-			order = append(order, defaultPref...)
+		if norm == "" {
 			continue
 		}
-		order = append(order, item)
+		norm = strings.ToLower(norm)
+		if _, exists := rank[norm]; exists {
+			continue
+		}
+		rank[norm] = i
 	}
 
-	return order
-}
-
-// binaryAvailable reports whether a tool executable can be resolved on PATH.
-// It checks only the command token so tool declarations can remain flexible.
-func binaryAvailable(toolName string) bool {
-	binary := firstCommandToken(toolName)
-	if binary == "" {
-		return false
-	}
-	_, err := exec.LookPath(binary)
-	return err == nil
+	return rank
 }

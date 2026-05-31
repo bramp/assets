@@ -37,6 +37,9 @@ type ResolveOptions struct {
 	// CheckAvailability controls whether unavailable tools are filtered out.
 	// Defaults to true in ResolvePipeline.
 	CheckAvailability bool
+	// ToolRepo supplies cached tool metadata/probes for resolve and provenance.
+	// If nil, ResolvePipelineWithOptions creates a default repository.
+	ToolRepo ToolRepository
 }
 
 // FindTarget resolves a manifest output path to its source asset and output spec.
@@ -65,17 +68,29 @@ func ResolvePipelineWithOptions(
 ) ([]manifest.PipelineStep, error) {
 	sourceExt := strings.ToLower(strings.TrimSpace(filepath.Ext(sourcePath)))
 	outputExt := strings.ToLower(strings.TrimSpace(filepath.Ext(o.Path)))
+	toolRepo := opts.ToolRepo
+	if toolRepo == nil {
+		toolRepo = NewToolRepository()
+	}
 
-	order := buildPreferenceOrder(o.Options.Tools, m.Meta.Render.Defaults.Tools)
+	preferenceRank := buildPreferenceRank(o.Options.Tools, m.Meta.Render.Defaults.Tools)
 
-	steps, err := resolveGraphPath(m.Meta.Render.Tools, order, sourceExt, outputExt, o.Options.ScaleMode, opts)
+	steps, err := resolveGraphPath(
+		m.Meta.Render.Tools,
+		preferenceRank,
+		sourceExt,
+		outputExt,
+		o.Options.ScaleMode,
+		opts,
+		toolRepo,
+	)
 	if err != nil {
 		return nil, err
 	}
 	// TODO(bramp): Model final optimization as an explicit graph node/state so
 	// terminal optimization is selected during path resolution instead of appended
 	// after graph traversal.
-	if steps, err = appendTerminalOptimizer(m.Meta.Render, steps, outputExt, opts); err != nil {
+	if steps, err = appendTerminalOptimizer(m.Meta.Render, steps, outputExt, opts, toolRepo); err != nil {
 		return nil, err
 	}
 
