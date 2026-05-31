@@ -154,11 +154,11 @@ func cloneYAMLValue(v any) any {
 
 func normalizeManifest(m *Manifest) {
 	for i := range m.Assets {
-		m.Assets[i].Source = canonicalSourcePath(m.Assets[i].Source)
+		m.Assets[i].Source = canonicalPath(m.Assets[i].Source)
 	}
 }
 
-func canonicalSourcePath(raw string) string {
+func canonicalPath(raw string) string {
 	norm := strings.TrimSpace(raw)
 	if norm == "" {
 		return ""

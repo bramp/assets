@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestCanonicalSourcePath(t *testing.T) {
+func TestCanonicalPath(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -24,8 +24,8 @@ func TestCanonicalSourcePath(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got := canonicalSourcePath(tc.in); got != tc.want {
-				t.Fatalf("canonicalSourcePath(%q)=%q want %q", tc.in, got, tc.want)
+			if got := canonicalPath(tc.in); got != tc.want {
+				t.Fatalf("canonicalPath(%q)=%q want %q", tc.in, got, tc.want)
 			}
 		})
 	}

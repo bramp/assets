@@ -395,6 +395,52 @@ func TestValidate_DuplicateSourcesAfterCanonicalization(t *testing.T) {
 	}
 }
 
+func TestValidate_DuplicateOutputsAfterCanonicalization(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	sourceRel := filepath.Join("raw", "in.txt")
+	sourceAbs := filepath.Join(dir, sourceRel)
+	if err := os.MkdirAll(filepath.Dir(sourceAbs), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(sourceAbs, []byte("ok\n"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	m := &Manifest{
+		Meta: Meta{Project: "test"},
+		Assets: []Asset{{
+			Source: sourceRel,
+			Outputs: []Output{
+				{
+					Path:   "out/a.png",
+					Width:  1,
+					Height: 1,
+					Options: Options{
+						ScaleMode:  "fit",
+						Background: "transparent",
+					},
+				},
+				{
+					Path:   " ./out/../out/a.png ",
+					Width:  1,
+					Height: 1,
+					Options: Options{
+						ScaleMode:  "fit",
+						Background: "transparent",
+					},
+				},
+			},
+		}},
+	}
+
+	errStr := joinErrs(m.Validate(ValidationConfig{Strict: false, BaseDir: dir}))
+	if !strings.Contains(errStr, `duplicate output path "out/a.png"`) {
+		t.Fatalf("expected duplicate canonical output error, got: %s", errStr)
+	}
+}
+
 func joinErrs(errs []error) string {
 	parts := make([]string, 0, len(errs))
 	for _, err := range errs {

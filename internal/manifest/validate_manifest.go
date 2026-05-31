@@ -54,7 +54,7 @@ func validateAsset(
 ) []error {
 	var errs []error
 	ref := assetRef(asset, idx)
-	source := canonicalSourcePath(asset.Source)
+	source := canonicalPath(asset.Source)
 
 	if source == "" {
 		errs = append(errs, fmt.Errorf("%s: source is required", ref))
@@ -113,19 +113,20 @@ func validateOutput(
 ) []error {
 	var errs []error
 	outputRef := fmt.Sprintf("%s output[%d]", assetRef, idx)
+	outputPath := canonicalPath(out.Path)
 
-	if strings.TrimSpace(out.Path) == "" {
+	if outputPath == "" {
 		errs = append(errs, fmt.Errorf("%s: path is required", outputRef))
 	}
 
-	if out.Path != "" {
-		if first, ok := seenOutputs[out.Path]; ok {
+	if outputPath != "" {
+		if first, ok := seenOutputs[outputPath]; ok {
 			errs = append(
 				errs,
-				fmt.Errorf("%s: duplicate output path %q (already used by %s)", outputRef, out.Path, first),
+				fmt.Errorf("%s: duplicate output path %q (already used by %s)", outputRef, outputPath, first),
 			)
 		} else {
-			seenOutputs[out.Path] = outputRef
+			seenOutputs[outputPath] = outputRef
 		}
 	}
 
@@ -157,7 +158,7 @@ func validateOutput(
 }
 
 func assetRef(a Asset, idx int) string {
-	if source := canonicalSourcePath(a.Source); source != "" {
+	if source := canonicalPath(a.Source); source != "" {
 		return fmt.Sprintf("asset[%q]", source)
 	}
 	return fmt.Sprintf("asset[%d]", idx)
