@@ -116,8 +116,7 @@ meta:
         command: "jpegoptim --strip-all {output}"
 
 assets:
-  - id: "app_logo"
-    source: "examples/complex/raw/test_svg.svg"
+  - source: "examples/complex/raw/test_svg.svg"
     owner: "Andrew Brampton"
     copyright: "© 2026 Andrew Brampton"
     license: "Proprietary"
@@ -139,8 +138,7 @@ assets:
           scale_mode: "fill"
           background: "#FFFFFF"
 
-  - id: "search_icon"
-    source: "examples/complex/raw/test_png.png"
+  - source: "examples/complex/raw/test_png.png"
     owner: "Material Design Authors"
     copyright: "© Google LLC"
     license: "Apache-2.0"

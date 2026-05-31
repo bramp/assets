@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -32,6 +34,7 @@ func Load(r io.Reader) (*Manifest, error) {
 	if err := decodeYAMLKnownFields(merged, &m); err != nil {
 		return nil, err
 	}
+	normalizeManifest(&m)
 
 	return &m, nil
 }
@@ -147,4 +150,25 @@ func cloneYAMLValue(v any) any {
 	default:
 		return t
 	}
+}
+
+func normalizeManifest(m *Manifest) {
+	for i := range m.Assets {
+		m.Assets[i].Source = canonicalSourcePath(m.Assets[i].Source)
+	}
+}
+
+func canonicalSourcePath(raw string) string {
+	norm := strings.TrimSpace(raw)
+	if norm == "" {
+		return ""
+	}
+	// Manifest paths are treated as lexical relative paths, not filesystem-resolved
+	// paths, so normalize separators and dot segments deterministically.
+	norm = strings.ReplaceAll(norm, "\\", "/")
+	norm = path.Clean(norm)
+	if norm == "." {
+		return ""
+	}
+	return norm
 }

@@ -49,7 +49,6 @@ type RenderDefaults struct {
 
 // Asset describes one source file and all generated outputs derived from it.
 type Asset struct {
-	ID        string   `yaml:"id"`
 	Source    string   `yaml:"source"`
 	Owner     string   `yaml:"owner"`
 	Copyright string   `yaml:"copyright"`

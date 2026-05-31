@@ -35,8 +35,7 @@ func TestRunCheck_ValidationFailure(t *testing.T) {
 	manifest := `meta:
   project: ""
 assets:
-  - id: "a"
-    source: "raw/missing.txt"
+  - source: "raw/missing.txt"
     outputs:
       - path: "out/out.txt"
         width: 0

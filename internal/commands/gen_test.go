@@ -93,8 +93,7 @@ func TestRunGen_CommentCommands(t *testing.T) {
         produces: [".png"]
         command: "cp {input} {output}"
 assets:
-  - id: "a"
-    source: "raw/in.svg"
+  - source: "raw/in.svg"
     outputs:
       - path: "out/a.png"
         width: 100
@@ -144,8 +143,7 @@ func TestRunGen_CommentCommandsSplitChains(t *testing.T) {
         produces: [".png"]
         command: "cp {input} {output} && : -resize {width}x{height}"
 assets:
-  - id: "a"
-    source: "raw/in.svg"
+  - source: "raw/in.svg"
     outputs:
       - path: "out/a.png"
         width: 100
@@ -194,8 +192,7 @@ func TestRunGen_CommentCommandsSplitPipesAndAnd(t *testing.T) {
         produces: [".png"]
         command: "cat {input} | cat > {output} && : done"
 assets:
-  - id: "a"
-    source: "raw/in.svg"
+  - source: "raw/in.svg"
     outputs:
       - path: "out/a.png"
         width: 100

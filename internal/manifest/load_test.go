@@ -6,6 +6,31 @@ import (
 	"testing"
 )
 
+func TestCanonicalSourcePath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "empty", in: "", want: ""},
+		{name: "trim", in: "  raw/in.txt  ", want: "raw/in.txt"},
+		{name: "single-backslash", in: `raw\in.txt`, want: "raw/in.txt"},
+		{name: "dot-segments", in: "./raw/../raw/in.txt", want: "raw/in.txt"},
+		{name: "clean-to-dot", in: " . ", want: ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := canonicalSourcePath(tc.in); got != tc.want {
+				t.Fatalf("canonicalSourcePath(%q)=%q want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestMergeYAMLMaps(t *testing.T) {
 	t.Parallel()
 

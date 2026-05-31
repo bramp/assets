@@ -50,8 +50,7 @@ meta:
   project: "My App"
 
 assets:
-  - id: "logo"
-    source: "raw/logo.svg"
+  - source: "raw/logo.svg"
     owner: "Example Org"
     copyright: "Copyright 2026"
     license: "Proprietary"
@@ -200,8 +199,7 @@ meta:
         command: "cwebp -quiet -q 82 {output} -o {output}"
 
 assets:
-  - id: "logo"
-    source: "raw/logo.svg"
+  - source: "raw/logo.svg"
     outputs:
       - path: "assets/images/logo_128.png"
         width: 128

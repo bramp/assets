@@ -14,8 +14,7 @@ func TestLoad_FromReader(t *testing.T) {
 	data := `meta:
   project: "x"
 assets:
-  - id: "a"
-    source: "raw/in.svg"
+  - source: "raw/in.svg"
     outputs:
       - path: "out/a.png"
         width: 1
@@ -78,8 +77,7 @@ func TestLoadFile_AppliesBuiltInRenderDefaults(t *testing.T) {
 	data := `meta:
   project: "x"
 assets:
-  - id: "a"
-    source: "raw/in.svg"
+  - source: "raw/in.svg"
     outputs:
       - path: "out/a.png"
         width: 1
@@ -126,8 +124,7 @@ func TestLoadFile_UserCanAmendBuiltInTool(t *testing.T) {
       resvg:
         command: "custom-resvg {input} {output}"
 assets:
-  - id: "a"
-    source: "raw/in.svg"
+  - source: "raw/in.svg"
     outputs:
       - path: "out/a.png"
         width: 1
@@ -180,7 +177,6 @@ func TestValidate_StrictVsLooseLegalFields(t *testing.T) {
 	m := &Manifest{
 		Meta: Meta{Project: "test"},
 		Assets: []Asset{{
-			ID:     "a",
 			Source: sourceRel,
 			Outputs: []Output{{
 				Path:   "out/a.txt",
@@ -226,8 +222,7 @@ func TestValidate_RenderPipelineAndOutputControls(t *testing.T) {
           - tool: "cp"
             command: "cp {input} {output}"
 assets:
-  - id: "a"
-    source: "raw/in.txt"
+  - source: "raw/in.txt"
     outputs:
       - path: "out/a.txt"
         width: 1
@@ -286,7 +281,6 @@ func TestValidate_OptimizeByFormat(t *testing.T) {
 			},
 		},
 		Assets: []Asset{{
-			ID:     "a",
 			Source: sourceRel,
 			Outputs: []Output{{
 				Path:   "out/a.png",
@@ -314,11 +308,11 @@ func TestValidate_OptimizeByFormat(t *testing.T) {
 func TestHelpers(t *testing.T) {
 	t.Parallel()
 
-	if got := assetRef(Asset{ID: "x"}, 0); got != `asset["x"]` {
-		t.Fatalf("unexpected assetRef with id: %q", got)
+	if got := assetRef(Asset{Source: "raw/in.svg"}, 0); got != `asset["raw/in.svg"]` {
+		t.Fatalf("unexpected assetRef with source: %q", got)
 	}
 	if got := assetRef(Asset{}, 7); got != "asset[7]" {
-		t.Fatalf("unexpected assetRef without id: %q", got)
+		t.Fatalf("unexpected assetRef without source: %q", got)
 	}
 
 	for _, tc := range []struct {
@@ -349,6 +343,55 @@ func TestHelpers(t *testing.T) {
 		if got := validBackground(tc.v); got != tc.want {
 			t.Fatalf("validBackground(%q)=%v want %v", tc.v, got, tc.want)
 		}
+	}
+}
+
+func TestValidate_DuplicateSourcesAfterCanonicalization(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	sourceRel := filepath.Join("raw", "in.txt")
+	sourceAbs := filepath.Join(dir, sourceRel)
+	if err := os.MkdirAll(filepath.Dir(sourceAbs), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(sourceAbs, []byte("ok\n"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	m := &Manifest{
+		Meta: Meta{Project: "test"},
+		Assets: []Asset{
+			{
+				Source: "raw/in.txt",
+				Outputs: []Output{{
+					Path:   "out/a.txt",
+					Width:  1,
+					Height: 1,
+					Options: Options{
+						ScaleMode:  "fit",
+						Background: "transparent",
+					},
+				}},
+			},
+			{
+				Source: "./raw/../raw/in.txt",
+				Outputs: []Output{{
+					Path:   "out/b.txt",
+					Width:  1,
+					Height: 1,
+					Options: Options{
+						ScaleMode:  "fit",
+						Background: "transparent",
+					},
+				}},
+			},
+		},
+	}
+
+	errStr := joinErrs(m.Validate(ValidationConfig{Strict: false, BaseDir: dir}))
+	if !strings.Contains(errStr, `duplicate source path "raw/in.txt"`) {
+		t.Fatalf("expected duplicate canonical source error, got: %s", errStr)
 	}
 }
 

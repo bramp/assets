@@ -13,18 +13,20 @@ import (
 func (m *Manifest) Validate(cfg ValidationConfig) []error {
 	var errs []error
 
-	errs = append(errs, validateProjectAndRender(m)...)
+	errs = append(errs, validateMetaConfig(&m.Meta)...)
 
 	if len(m.Assets) == 0 {
 		errs = append(errs, errors.New("assets must contain at least one asset"))
 		return errs
 	}
 
+	seenSources := make(map[string]string)
 	seenOutputs := make(map[string]string)
 	for i, asset := range m.Assets {
-		errs = append(errs, validateAsset(asset, i, cfg, seenOutputs, m.Meta.Render.Tools)...)
+		errs = append(errs, validateAsset(asset, i, cfg, seenSources, seenOutputs, m.Meta.Render.Tools)...)
 	}
 
+	// Sort errors alphabetically for stable output in tests and CLI feedback.
 	sort.Slice(errs, func(i, j int) bool {
 		return errs[i].Error() < errs[j].Error()
 	})
@@ -32,12 +34,13 @@ func (m *Manifest) Validate(cfg ValidationConfig) []error {
 	return errs
 }
 
-func validateProjectAndRender(m *Manifest) []error {
+func validateMetaConfig(m *Meta) []error {
 	var errs []error
-	if strings.TrimSpace(m.Meta.Project) == "" {
+	if strings.TrimSpace(m.Project) == "" {
 		errs = append(errs, errors.New("meta.project is required"))
 	}
-	errs = append(errs, validateRenderConfig(m.Meta.Render)...)
+	errs = append(errs, validateRenderConfig(m.Render)...)
+
 	return errs
 }
 
@@ -45,17 +48,25 @@ func validateAsset(
 	asset Asset,
 	idx int,
 	cfg ValidationConfig,
+	seenSources map[string]string,
 	seenOutputs map[string]string,
 	tools map[string]PipelineStep,
 ) []error {
 	var errs []error
 	ref := assetRef(asset, idx)
+	source := canonicalSourcePath(asset.Source)
 
-	if strings.TrimSpace(asset.ID) == "" {
-		errs = append(errs, fmt.Errorf("%s: id is required", ref))
-	}
-	if strings.TrimSpace(asset.Source) == "" {
+	if source == "" {
 		errs = append(errs, fmt.Errorf("%s: source is required", ref))
+	} else {
+		if first, ok := seenSources[source]; ok {
+			errs = append(
+				errs,
+				fmt.Errorf("%s: duplicate source path %q (already used by %s)", ref, source, first),
+			)
+		} else {
+			seenSources[source] = ref
+		}
 	}
 	if len(asset.Outputs) == 0 {
 		errs = append(errs, fmt.Errorf("%s: outputs must contain at least one output", ref))
@@ -65,9 +76,11 @@ func validateAsset(
 		errs = append(errs, validateStrictLegal(ref, asset)...)
 	}
 
-	sourcePath := filepath.Join(cfg.BaseDir, asset.Source)
-	if _, err := os.Stat(sourcePath); err != nil {
-		errs = append(errs, fmt.Errorf("%s: source file does not exist: %s", ref, asset.Source))
+	if source != "" {
+		sourcePath := filepath.Join(cfg.BaseDir, source)
+		if _, err := os.Stat(sourcePath); err != nil {
+			errs = append(errs, fmt.Errorf("%s: source file does not exist: %s", ref, source))
+		}
 	}
 
 	for i, out := range asset.Outputs {
@@ -144,10 +157,10 @@ func validateOutput(
 }
 
 func assetRef(a Asset, idx int) string {
-	if strings.TrimSpace(a.ID) == "" {
-		return fmt.Sprintf("asset[%d]", idx)
+	if source := canonicalSourcePath(a.Source); source != "" {
+		return fmt.Sprintf("asset[%q]", source)
 	}
-	return fmt.Sprintf("asset[%q]", a.ID)
+	return fmt.Sprintf("asset[%d]", idx)
 }
 
 func validScaleMode(v string) bool {

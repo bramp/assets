@@ -146,7 +146,6 @@ func TestFindTarget(t *testing.T) {
 
 	m := &manifest.Manifest{
 		Assets: []manifest.Asset{{
-			ID:     "a",
 			Source: "raw/in.txt",
 			Outputs: []manifest.Output{{
 				Path: "out/a.txt",
@@ -158,7 +157,7 @@ func TestFindTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("find target: %v", err)
 	}
-	if spec.Asset.ID != "a" || spec.Output.Path != "out/a.txt" {
+	if spec.Asset.Source != "raw/in.txt" || spec.Output.Path != "out/a.txt" {
 		t.Fatalf("unexpected target spec: %+v", spec)
 	}
 

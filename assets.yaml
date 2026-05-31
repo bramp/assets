@@ -2,8 +2,7 @@ meta:
   project: "assets"
 
 assets:
-  - id: "sample_logo"
-    source: "examples/complex/raw/test_svg.svg"
+  - source: "examples/complex/raw/test_svg.svg"
     owner: "Andrew Brampton"
     copyright: "© 2026 Andrew Brampton"
     license: "Proprietary"
@@ -15,8 +14,7 @@ assets:
           scale_mode: "fit"
           background: "transparent"
 
-  - id: "sample_icon"
-    source: "examples/complex/raw/test_png.png"
+  - source: "examples/complex/raw/test_png.png"
     owner: "Andrew Brampton"
     copyright: "© 2026 Andrew Brampton"
     license: "Proprietary"

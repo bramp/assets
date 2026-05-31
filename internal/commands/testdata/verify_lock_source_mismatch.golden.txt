@@ -1,1 +1,1 @@
-verify: asset "a" output "out/out.txt" source metadata mismatch
+verify: asset "raw/in.txt" output "out/out.txt" source metadata mismatch

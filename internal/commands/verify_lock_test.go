@@ -254,8 +254,7 @@ func writePipelineFixture(t *testing.T, dir string) string {
 		"        accepts: [\".txt\"]\n" +
 		"        produces: [\".txt\"]\n" +
 		"assets:\n" +
-		"  - id: \"a\"\n" +
-		"    source: \"raw/in.txt\"\n" +
+		"  - source: \"raw/in.txt\"\n" +
 		"    outputs:\n" +
 		"      - path: \"out/out.txt\"\n" +
 		"        width: 1\n" +

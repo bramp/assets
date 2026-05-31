@@ -35,8 +35,7 @@ func TestRunBuildTarget_Success(t *testing.T) {
 		"        accepts: [\".txt\"]\n" +
 		"        produces: [\".txt\"]\n" +
 		"assets:\n" +
-		"  - id: \"a\"\n" +
-		"    source: \"raw/in.txt\"\n" +
+		"  - source: \"raw/in.txt\"\n" +
 		"    outputs:\n" +
 		"      - path: \"out/out.txt\"\n" +
 		"        width: 1\n" +
@@ -128,8 +127,7 @@ func TestRunBuildTarget_CommandOutputVerbosity(t *testing.T) {
 			"        accepts: [\".txt\"]\n" +
 			"        produces: [\".txt\"]\n" +
 			"assets:\n" +
-			"  - id: \"a\"\n" +
-			"    source: \"raw/in.txt\"\n" +
+			"  - source: \"raw/in.txt\"\n" +
 			"    outputs:\n" +
 			"      - path: \"out/out.txt\"\n" +
 			"        width: 1\n" +
@@ -195,8 +193,7 @@ func TestRunBuildTarget_TargetNotFound(t *testing.T) {
 	manifest := `meta:
   project: "test"
 assets:
-  - id: "a"
-    source: "raw/in.txt"
+  - source: "raw/in.txt"
     outputs:
       - path: "out/out.txt"
         width: 1
@@ -258,8 +255,7 @@ func TestRunBuildTarget_PipelineFailure(t *testing.T) {
 		"        accepts: [\".txt\"]\n" +
 		"        produces: [\".txt\"]\n" +
 		"assets:\n" +
-		"  - id: \"a\"\n" +
-		"    source: \"raw/in.txt\"\n" +
+		"  - source: \"raw/in.txt\"\n" +
 		"    outputs:\n" +
 		"      - path: \"out/out.txt\"\n" +
 		"        width: 1\n" +
@@ -312,8 +308,7 @@ func TestRunBuildTarget_OtherFailureBranches(t *testing.T) {
 		manifest := `meta:
   project: "test"
 assets:
-  - id: "a"
-    source: "raw/in.txt"
+  - source: "raw/in.txt"
     outputs:
       - path: "out/out.txt"
         width: 1
@@ -352,8 +347,7 @@ assets:
 			"        accepts: [\".txt\"]\n" +
 			"        produces: [\".txt\"]\n" +
 			"assets:\n" +
-			"  - id: \"a\"\n" +
-			"    source: \"raw/missing.txt\"\n" +
+			"  - source: \"raw/missing.txt\"\n" +
 			"    outputs:\n" +
 			"      - path: \"out/out.txt\"\n" +
 			"        width: 1\n" +
@@ -399,8 +393,7 @@ assets:
 			"        accepts: [\".txt\"]\n" +
 			"        produces: [\".txt\"]\n" +
 			"assets:\n" +
-			"  - id: \"a\"\n" +
-			"    source: \"raw/in.txt\"\n" +
+			"  - source: \"raw/in.txt\"\n" +
 			"    outputs:\n" +
 			"      - path: \"out/out.txt\"\n" +
 			"        width: 1\n" +
