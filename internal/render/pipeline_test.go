@@ -275,7 +275,7 @@ func TestExpandAndShellQuote(t *testing.T) {
 
 	step := manifest.PipelineStep{
 		Command:  "resvg {sets_size} {input} {output}",
-		SetsSize: "-w {WIDTH} -h {HEIGHT}",
+		SetsSize: "-w {width} -h {height}",
 	}
 	gotStepCmd := expandStepCommand(step, ctx)
 	for _, want := range []string{"-w 10", "-h 20", `'/tmp/in '\''quote'\''.txt'`, "'/tmp/out.txt'"} {

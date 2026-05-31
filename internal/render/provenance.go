@@ -26,6 +26,7 @@ func CollectProvenance(steps []manifest.PipelineStep) *lockfile.Provenance {
 			continue
 		}
 		seen[s.Tool] = true
+		// TODO(bramp): Add a version command to the tool config and use that instead of best-effort guessing, which may be slow and unreliable.
 		if v := commandVersion(s.Tool); v != "" {
 			tools[s.Tool] = v
 		}

@@ -195,6 +195,12 @@ func appendWrappedCommentCommand(w *errWriter, command string) {
 	}
 }
 
+// splitCommandChain breaks a shell command into comment-friendly segments at
+// top-level chaining tokens so generated example commands are easier to read.
+//
+// The returned ops align with parts[1:], allowing callers to re-render a
+// multi-step command as one commented line per step without changing the
+// original command text.
 func splitCommandChain(command string) ([]string, []string) {
 	if command == "" {
 		return nil, nil

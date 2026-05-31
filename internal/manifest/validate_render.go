@@ -159,6 +159,5 @@ func validateToolRegistry(prefix string, registry map[string]PipelineStep) []err
 }
 
 func commandUsesTargetSizePlaceholders(cmd string) bool {
-	return strings.Contains(cmd, "{width}") || strings.Contains(cmd, "{height}") || strings.Contains(cmd, "{WIDTH}") ||
-		strings.Contains(cmd, "{HEIGHT}")
+	return strings.Contains(cmd, "{width}") || strings.Contains(cmd, "{height}")
 }
