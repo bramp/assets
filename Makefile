@@ -1,4 +1,4 @@
-.PHONY: all format analyze test test-ci fix upgrade hooks-install
+.PHONY: all format lint analyze test test-ci fix upgrade hooks-install
 
 all: format analyze test
 
@@ -6,7 +6,12 @@ format:
 	go fmt ./...
 	goimports -w .
 
+lint:
+	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found; install from https://golangci-lint.run/welcome/install/"; exit 1; }
+	golangci-lint run --config .golangci.yml ./...
+
 analyze:
+	$(MAKE) lint
 	go vet ./...
 	staticcheck ./...
 
