@@ -3,14 +3,12 @@ package render
 
 import (
 	"testing"
-
-	"github.com/bramp/assets/internal/manifest"
 )
 
 func TestCollectProvenance(t *testing.T) {
 	t.Parallel()
 
-	steps := []manifest.PipelineStep{
+	steps := []ResolvedStep{
 		{Tool: "go", Command: "go version"},
 		{Tool: "go", Command: "go version"}, // duplicate tool should only be queried once
 	}
@@ -33,7 +31,7 @@ func TestCollectProvenance(t *testing.T) {
 func TestCollectProvenance_UnknownToolVersion(t *testing.T) {
 	t.Parallel()
 
-	steps := []manifest.PipelineStep{{
+	steps := []ResolvedStep{{
 		Tool:    "definitely-not-a-real-tool-xyz",
 		Command: "definitely-not-a-real-tool-xyz {input} {output}",
 	}}
@@ -50,7 +48,7 @@ func TestCollectProvenance_UnknownToolVersion(t *testing.T) {
 func TestCollectProvenance_VersionArgsOverride(t *testing.T) {
 	t.Parallel()
 
-	steps := []manifest.PipelineStep{{
+	steps := []ResolvedStep{{
 		Tool:        "go",
 		Command:     "go version",
 		VersionArgs: []string{"version"},

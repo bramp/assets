@@ -5,8 +5,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-
-	"github.com/bramp/assets/internal/manifest"
 )
 
 const toolVersionArg = "version"
@@ -17,7 +15,7 @@ const toolVersionArg = "version"
 // availability/version probes without repeating subprocess calls.
 type ToolRepository interface {
 	Available(toolName string) bool
-	Version(step manifest.PipelineStep) string
+	Version(step ResolvedStep) string
 }
 
 // NewToolRepository returns a process-local repository backed by command probes.
@@ -64,7 +62,7 @@ func (r *commandToolRepository) Available(toolName string) bool {
 }
 
 // TODO(bramp): Add a version command to the tool config and use that instead of best-effort guessing, which may be slow and unreliable.
-func (r *commandToolRepository) Version(step manifest.PipelineStep) string {
+func (r *commandToolRepository) Version(step ResolvedStep) string {
 	binary := firstCommandToken(step.Tool)
 	if binary == "" {
 		return ""

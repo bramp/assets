@@ -74,18 +74,23 @@ assets: []
 					ScaleMode:  mode,
 					Background: "transparent",
 				}
+				resolved := resolveStepForTest(toolName, step, inputExt, outputExt)
 
-				command := expandStepCommand(step, ctx)
+				command := expandStepCommand(resolved, ctx)
 				if unresolvedPlaceholderRE.MatchString(command) {
 					t.Fatalf("unresolved placeholder in command %q", command)
 				}
 
-				if err := ExecutePipeline([]manifest.PipelineStep{step}, ctx); err != nil {
+				if err := ExecutePipeline([]ResolvedStep{resolved}, ctx); err != nil {
 					t.Fatalf("execute step failed (tool=%s mode=%s): %v", toolName, mode, err)
 				}
 			})
 		}
 	}
+}
+
+func resolveStepForTest(name string, step manifest.PipelineStep, inputExt string, outputExt string) ResolvedStep {
+	return resolvedStepFromTool(name, step, inputExt, outputExt)
 }
 
 func sortedToolNames(tools map[string]manifest.PipelineStep) []string {

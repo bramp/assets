@@ -7,17 +7,16 @@ import (
 	"strings"
 
 	"github.com/bramp/assets/internal/lockfile"
-	"github.com/bramp/assets/internal/manifest"
 )
 
 // CollectProvenance records command chain and tool fingerprints for resolved steps.
-func CollectProvenance(steps []manifest.PipelineStep) *lockfile.Provenance {
+func CollectProvenance(steps []ResolvedStep) *lockfile.Provenance {
 	return CollectProvenanceWithRepo(steps, NewToolRepository())
 }
 
 // CollectProvenanceWithRepo records command chain and tool fingerprints for
 // resolved steps using the supplied tool repository.
-func CollectProvenanceWithRepo(steps []manifest.PipelineStep, toolRepo ToolRepository) *lockfile.Provenance {
+func CollectProvenanceWithRepo(steps []ResolvedStep, toolRepo ToolRepository) *lockfile.Provenance {
 	chain := make([]string, 0, len(steps))
 	tools := map[string]string{}
 	if toolRepo == nil {

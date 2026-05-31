@@ -15,11 +15,11 @@ import (
 // and validates that the chosen optimizer is format-safe and available.
 func appendTerminalOptimizer(
 	cfg manifest.RenderConfig,
-	steps []manifest.PipelineStep,
+	steps []ResolvedStep,
 	outputExt string,
 	opts ResolveOptions,
 	toolRepo ToolRepository,
-) ([]manifest.PipelineStep, error) {
+) ([]ResolvedStep, error) {
 	normExt := strings.ToLower(strings.TrimSpace(outputExt))
 	if normExt == "" || len(cfg.OptimizeByFormat) == 0 {
 		return steps, nil
@@ -34,7 +34,7 @@ func appendTerminalOptimizer(
 		return steps, nil
 	}
 
-	optimizeStep, ok := cfg.Tools[normOptimizeStepName]
+	optimizeDef, ok := cfg.Tools[normOptimizeStepName]
 	if !ok {
 		return nil, fmt.Errorf(
 			"optimizer %q configured for %q not found in render tools",
@@ -42,7 +42,7 @@ func appendTerminalOptimizer(
 			normExt,
 		)
 	}
-	if !matchesFormatList(optimizeStep.Accepts, normExt) || !matchesFormatList(optimizeStep.Produces, normExt) {
+	if !matchesFormatList(optimizeDef.Accepts, normExt) || !matchesFormatList(optimizeDef.Produces, normExt) {
 		return nil, fmt.Errorf(
 			"optimizer %q configured for %q must accept and produce %q",
 			normOptimizeStepName,
@@ -51,7 +51,9 @@ func appendTerminalOptimizer(
 		)
 	}
 
-	if len(steps) > 0 && samePipelineStep(steps[len(steps)-1], optimizeStep) {
+	optimizeStep := resolvedStepFromTool(normOptimizeStepName, optimizeDef, normExt, normExt)
+
+	if len(steps) > 0 && sameResolvedStep(steps[len(steps)-1], optimizeStep) {
 		return steps, nil
 	}
 
@@ -63,9 +65,9 @@ func appendTerminalOptimizer(
 	return append(steps, optimizeStep), nil
 }
 
-// samePipelineStep compares only executable identity (tool + command) to avoid
+// sameResolvedStep compares only executable identity (tool + command) to avoid
 // appending duplicate terminal optimizer steps.
-func samePipelineStep(a manifest.PipelineStep, b manifest.PipelineStep) bool {
+func sameResolvedStep(a ResolvedStep, b ResolvedStep) bool {
 	return strings.TrimSpace(a.Tool) == strings.TrimSpace(b.Tool) &&
 		strings.TrimSpace(a.Command) == strings.TrimSpace(b.Command)
 }
@@ -93,7 +95,7 @@ func supportsScaleMode(supported []string, mode string) bool {
 // Why: shortest-path planning gives deterministic, easy-to-reason-about
 // pipelines while still allowing preference-based tie-breaking.
 //
-//nolint:funlen,gocognit // Path search weighs availability, format compatibility, and preferences.
+//nolint:gocognit // Path search weighs availability, format compatibility, and preferences.
 func resolveGraphPath(
 	tools map[string]manifest.PipelineStep,
 	preferenceRank map[string]int,
@@ -102,7 +104,7 @@ func resolveGraphPath(
 	scaleMode string,
 	opts ResolveOptions,
 	toolRepo ToolRepository,
-) ([]manifest.PipelineStep, error) {
+) ([]ResolvedStep, error) {
 	if sourceExt == "" || outputExt == "" {
 		return nil, errors.New("unable to resolve conversion path for empty source/output format")
 	}
@@ -111,17 +113,17 @@ func resolveGraphPath(
 
 	type pathState struct {
 		format string
-		tools  []string
+		steps  []ResolvedStep
 	}
-	queue := []pathState{{format: sourceExt, tools: nil}}
+	queue := []pathState{{format: sourceExt, steps: nil}}
 	best := make(map[string]int)
 	best[sourceExt] = 0
-	var solutions [][]string
+	var solutions [][]ResolvedStep
 
 	for len(queue) > 0 {
 		state := queue[0]
 		queue = queue[1:]
-		if len(state.tools) >= maxDepth {
+		if len(state.steps) >= maxDepth {
 			continue
 		}
 
@@ -144,17 +146,20 @@ func resolveGraphPath(
 				if produced == "" {
 					continue
 				}
-				nextTools := append(append([]string(nil), state.tools...), normName)
+				nextSteps := append(
+					append([]ResolvedStep(nil), state.steps...),
+					resolvedStepFromTool(normName, step, state.format, produced),
+				)
 				if produced == outputExt {
-					solutions = append(solutions, nextTools)
+					solutions = append(solutions, nextSteps)
 					continue
 				}
-				depth := len(nextTools)
+				depth := len(nextSteps)
 				if prev, ok := best[produced]; ok && depth >= prev {
 					continue
 				}
 				best[produced] = depth
-				queue = append(queue, pathState{format: produced, tools: nextTools})
+				queue = append(queue, pathState{format: produced, steps: nextSteps})
 			}
 		}
 	}
@@ -173,15 +178,25 @@ func resolveGraphPath(
 		}
 	}
 
-	resolved := make([]manifest.PipelineStep, 0, len(bestPath))
-	for _, name := range bestPath {
-		step, ok := tools[name]
-		if !ok {
-			continue
-		}
-		resolved = append(resolved, step)
+	return append([]ResolvedStep(nil), bestPath...), nil
+}
+
+func resolvedStepFromTool(
+	name string,
+	step manifest.PipelineStep,
+	inputFormat string,
+	outputFormat string,
+) ResolvedStep {
+	return ResolvedStep{
+		Name:         strings.TrimSpace(name),
+		Tool:         step.Tool,
+		Command:      step.Command,
+		SizeTemplate: step.SizeTemplate,
+		SizeByMode:   step.SizeByMode,
+		VersionArgs:  append([]string(nil), step.VersionArgs...),
+		InputFormat:  strings.ToLower(strings.TrimSpace(inputFormat)),
+		OutputFormat: strings.ToLower(strings.TrimSpace(outputFormat)),
 	}
-	return resolved, nil
 }
 
 // buildAvailabilityChecker returns a tool-availability predicate honoring
@@ -256,10 +271,10 @@ func matchesFormatList(list []string, format string) bool {
 
 // graphPathScore ranks candidate paths by favoring shorter chains first and
 // then applying preference order as a deterministic tie-breaker.
-func graphPathScore(path []string, pref map[string]int) int {
+func graphPathScore(path []ResolvedStep, pref map[string]int) int {
 	score := len(path) * 1000
-	for i, n := range path {
-		rank, ok := pref[n]
+	for i, step := range path {
+		rank, ok := pref[strings.ToLower(strings.TrimSpace(step.Name))]
 		if !ok {
 			rank = 999
 		}

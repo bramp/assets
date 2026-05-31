@@ -177,7 +177,7 @@ func TestExecutePipeline_Success(t *testing.T) {
 	}
 
 	ctx := BuildContext{InputPath: input, OutputPath: output}
-	steps := []manifest.PipelineStep{{Tool: "cp", Command: "cp {input} {output}"}}
+	steps := []ResolvedStep{{Tool: "cp", Command: "cp {input} {output}"}}
 	if err := ExecutePipeline(steps, ctx); err != nil {
 		t.Fatalf("execute pipeline: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestExecutePipeline_FailureAndMissingOutput(t *testing.T) {
 		t.Parallel()
 
 		ctx := BuildContext{InputPath: input, OutputPath: filepath.Join(dir, "out-fail.txt")}
-		steps := []manifest.PipelineStep{{Tool: "sh", Command: "false"}}
+		steps := []ResolvedStep{{Tool: "sh", Command: "false"}}
 		err := ExecutePipeline(steps, ctx)
 		if err == nil || !strings.Contains(err.Error(), "pipeline step") {
 			t.Fatalf("expected pipeline step error, got %v", err)
@@ -215,7 +215,7 @@ func TestExecutePipeline_FailureAndMissingOutput(t *testing.T) {
 		t.Parallel()
 
 		ctx := BuildContext{InputPath: input, OutputPath: filepath.Join(dir, "out-missing.txt")}
-		steps := []manifest.PipelineStep{{Tool: "sh", Command: "echo hi >/dev/null"}}
+		steps := []ResolvedStep{{Tool: "sh", Command: "echo hi >/dev/null"}}
 		err := ExecutePipeline(steps, ctx)
 		if err == nil || !strings.Contains(err.Error(), "did not produce output") {
 			t.Fatalf("expected missing output error, got %v", err)
@@ -229,7 +229,7 @@ func TestExecutePipeline_FailureAndMissingOutput(t *testing.T) {
 			InputPath:  filepath.Join(dir, "does-not-exist.txt"),
 			OutputPath: filepath.Join(dir, "out-missing-input.txt"),
 		}
-		steps := []manifest.PipelineStep{{Tool: "cp", Command: "cp {input} {output}"}}
+		steps := []ResolvedStep{{Tool: "cp", Command: "cp {input} {output}"}}
 		err := ExecutePipeline(steps, ctx)
 		if err == nil || !strings.Contains(err.Error(), "input") {
 			t.Fatalf("expected input validation error, got %v", err)
@@ -240,7 +240,7 @@ func TestExecutePipeline_FailureAndMissingOutput(t *testing.T) {
 		t.Parallel()
 
 		ctx := BuildContext{InputPath: input, OutputPath: filepath.Join(dir, "out-empty.txt")}
-		steps := []manifest.PipelineStep{{Tool: "sh", Command: ": > {output}"}}
+		steps := []ResolvedStep{{Tool: "sh", Command: ": > {output}"}}
 		err := ExecutePipeline(steps, ctx)
 		if err == nil || !strings.Contains(err.Error(), "size must be > 0 bytes") {
 			t.Fatalf("expected non-empty output validation error, got %v", err)
@@ -273,7 +273,7 @@ func TestExpandAndShellQuote(t *testing.T) {
 		t.Fatalf("unexpected empty quote: %q", sq)
 	}
 
-	step := manifest.PipelineStep{
+	step := ResolvedStep{
 		Command:      "resvg {size} {input} {output}",
 		SizeTemplate: "-w {width} -h {height}",
 	}
@@ -284,7 +284,7 @@ func TestExpandAndShellQuote(t *testing.T) {
 		}
 	}
 
-	modeStep := manifest.PipelineStep{
+	modeStep := ResolvedStep{
 		Command: "magick {size} {input} {output}",
 		SizeByMode: map[string]string{
 			"fill":    "-resize {width}x{height}^",
@@ -513,24 +513,24 @@ func TestResolvePipeline_DoesNotDuplicateTerminalOptimizer(t *testing.T) {
 func TestPlannedCommands_UsesPerStepIntermediateExtensions(t *testing.T) {
 	t.Parallel()
 
-	steps := []manifest.PipelineStep{
+	steps := []ResolvedStep{
 		{
-			Tool:     "inkscape",
-			Accepts:  []string{".svg"},
-			Produces: []string{".png"},
-			Command:  "inkscape {input} --export-filename={output}",
+			Tool:         "inkscape",
+			InputFormat:  ".svg",
+			OutputFormat: ".png",
+			Command:      "inkscape {input} --export-filename={output}",
 		},
 		{
-			Tool:     "magick",
-			Accepts:  []string{".png"},
-			Produces: []string{".webp"},
-			Command:  "magick {input} {output}",
+			Tool:         "magick",
+			InputFormat:  ".png",
+			OutputFormat: ".webp",
+			Command:      "magick {input} {output}",
 		},
 		{
-			Tool:     "cwebp",
-			Accepts:  []string{".webp"},
-			Produces: []string{".webp"},
-			Command:  "cwebp -quiet {input} -o {output}",
+			Tool:         "cwebp",
+			InputFormat:  ".webp",
+			OutputFormat: ".webp",
+			Command:      "cwebp -quiet {input} -o {output}",
 		},
 	}
 
@@ -555,6 +555,6 @@ func TestPlannedCommands_UsesPerStepIntermediateExtensions(t *testing.T) {
 	}
 }
 
-func expandedCommandsForTest(steps []manifest.PipelineStep, ctx BuildContext) []string {
+func expandedCommandsForTest(steps []ResolvedStep, ctx BuildContext) []string {
 	return PlannedCommands(steps, ctx)
 }

@@ -3,8 +3,6 @@ package render
 import (
 	"strconv"
 	"strings"
-
-	"github.com/bramp/assets/internal/manifest"
 )
 
 func expand(s string, ctx BuildContext) string {
@@ -13,7 +11,7 @@ func expand(s string, ctx BuildContext) string {
 
 // expandStepCommand expands a pipeline step using the same placeholder rules
 // as execution, including tool-specific {size} expansion.
-func expandStepCommand(step manifest.PipelineStep, ctx BuildContext) string {
+func expandStepCommand(step ResolvedStep, ctx BuildContext) string {
 	size := expandTemplate(stepSizeTemplate(step, ctx.ScaleMode), ctx)
 	command := strings.ReplaceAll(step.Command, "{size}", size)
 	return expandTemplate(command, ctx)
@@ -40,7 +38,7 @@ func sizeStrings(ctx BuildContext) (string, string) {
 	return strconv.Itoa(ctx.Width), strconv.Itoa(ctx.Height)
 }
 
-func stepSizeTemplate(step manifest.PipelineStep, scaleMode string) string {
+func stepSizeTemplate(step ResolvedStep, scaleMode string) string {
 	mode := strings.ToLower(strings.TrimSpace(scaleMode))
 	if tmpl, ok := step.SizeByMode[mode]; ok && strings.TrimSpace(tmpl) != "" {
 		return tmpl

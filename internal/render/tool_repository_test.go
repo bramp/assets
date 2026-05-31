@@ -4,8 +4,6 @@ package render
 import (
 	"errors"
 	"testing"
-
-	"github.com/bramp/assets/internal/manifest"
 )
 
 func TestCommandToolRepository_AvailableCachesLookups(t *testing.T) {
@@ -73,7 +71,7 @@ func TestCommandToolRepository_VersionCachesPerTool(t *testing.T) {
 		},
 	}
 
-	step := manifest.PipelineStep{Tool: "tool", Command: "tool {input} {output}"}
+	step := ResolvedStep{Tool: "tool", Command: "tool {input} {output}"}
 	if got := repo.Version(step); got != "tool v1" {
 		t.Fatalf("unexpected default version probe result: %q", got)
 	}
@@ -84,7 +82,7 @@ func TestCommandToolRepository_VersionCachesPerTool(t *testing.T) {
 		t.Fatalf("expected one probe call after cache hit, got %d", calls)
 	}
 
-	override := manifest.PipelineStep{Tool: "tool", VersionArgs: []string{"-version"}}
+	override := ResolvedStep{Tool: "tool", VersionArgs: []string{"-version"}}
 	if got := repo.Version(override); got != "tool v1" {
 		t.Fatalf("expected same cached version regardless of args, got %q", got)
 	}
@@ -110,7 +108,7 @@ func TestCommandToolRepository_VersionUsesOverrideWhenUncached(t *testing.T) {
 		},
 	}
 
-	step := manifest.PipelineStep{Tool: "tool", VersionArgs: []string{"-version"}}
+	step := ResolvedStep{Tool: "tool", VersionArgs: []string{"-version"}}
 	if got := repo.Version(step); got != "tool dash-version" {
 		t.Fatalf("unexpected override version probe result: %q", got)
 	}

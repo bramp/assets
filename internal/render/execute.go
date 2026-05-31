@@ -8,17 +8,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"github.com/bramp/assets/internal/manifest"
 )
 
 // ExecutePipeline runs all resolved pipeline steps with default command hook behavior.
-func ExecutePipeline(steps []manifest.PipelineStep, ctx BuildContext) error {
+func ExecutePipeline(steps []ResolvedStep, ctx BuildContext) error {
 	return ExecutePipelineWithHook(steps, ctx, nil)
 }
 
 // ExecutePipelineWithHook runs all resolved steps and optionally reports command text.
-func ExecutePipelineWithHook(steps []manifest.PipelineStep, ctx BuildContext, onCommand func(string)) error {
+func ExecutePipelineWithHook(steps []ResolvedStep, ctx BuildContext, onCommand func(string)) error {
 	if err := os.MkdirAll(filepath.Dir(ctx.OutputPath), outputDirPerm); err != nil {
 		return err
 	}
@@ -83,7 +81,7 @@ func ensureFileExistsAndNonEmpty(path string) error {
 // PlannedCommands expands pipeline steps into the exact command strings that
 // would be executed, using the same input/output/tmp chaining behavior as
 // ExecutePipeline but without running any commands.
-func PlannedCommands(steps []manifest.PipelineStep, ctx BuildContext) []string {
+func PlannedCommands(steps []ResolvedStep, ctx BuildContext) []string {
 	commands := make([]string, 0, len(steps))
 	currentInput := ctx.InputPath
 	outputExt := strings.ToLower(strings.TrimSpace(filepath.Ext(ctx.OutputPath)))
@@ -101,7 +99,7 @@ func PlannedCommands(steps []manifest.PipelineStep, ctx BuildContext) []string {
 // execution and dry-run planning so the two code paths stay identical.
 func plannedStepContext(
 	ctx BuildContext,
-	steps []manifest.PipelineStep,
+	steps []ResolvedStep,
 	index int,
 	currentInput string,
 	outputExt string,
@@ -110,7 +108,7 @@ func plannedStepContext(
 	stepCtx.InputPath = currentInput
 
 	step := steps[index]
-	var nextStep *manifest.PipelineStep
+	var nextStep *ResolvedStep
 	if index+1 < len(steps) {
 		nextStep = &steps[index+1]
 	}
@@ -131,10 +129,10 @@ func plannedStepContext(
 // preserving the intended extension when the step changes formats.
 func stepTempPath(
 	basePath string,
-	step manifest.PipelineStep,
+	step ResolvedStep,
 	currentInput string,
 	finalOutputExt string,
-	nextStep *manifest.PipelineStep,
+	nextStep *ResolvedStep,
 ) string {
 	ext := stepOutputExt(step, currentInput, finalOutputExt, nextStep)
 	if ext == "" {
@@ -146,27 +144,24 @@ func stepTempPath(
 // stepOutputExt picks the most appropriate extension for the next temporary
 // file based on the current step, the current input, and the final target.
 func stepOutputExt(
-	step manifest.PipelineStep,
+	step ResolvedStep,
 	currentInput string,
 	finalOutputExt string,
-	nextStep *manifest.PipelineStep,
+	nextStep *ResolvedStep,
 ) string {
-	produced := producedFormats(step.Produces, finalOutputExt)
-	if len(produced) == 0 {
+	if strings.TrimSpace(step.OutputFormat) == "" {
 		return strings.ToLower(strings.TrimSpace(filepath.Ext(currentInput)))
 	}
-	if len(produced) == 1 {
-		return produced[0]
-	}
+	produced := []string{strings.ToLower(strings.TrimSpace(step.OutputFormat))}
 
 	if nextStep != nil {
 		for _, ext := range produced {
-			if ext == finalOutputExt && matchesFormatList(nextStep.Accepts, ext) {
+			if ext == finalOutputExt && strings.EqualFold(nextStep.InputFormat, ext) {
 				return ext
 			}
 		}
 		for _, ext := range produced {
-			if matchesFormatList(nextStep.Accepts, ext) {
+			if strings.EqualFold(nextStep.InputFormat, ext) {
 				return ext
 			}
 		}

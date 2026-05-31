@@ -32,6 +32,19 @@ type BuildContext struct {
 	Tmp2Path   string
 }
 
+// ResolvedStep is a concrete runtime step selected from the tool capability
+// graph for a specific source/target path.
+type ResolvedStep struct {
+	Name         string
+	Tool         string
+	Command      string
+	SizeTemplate string
+	SizeByMode   map[string]string
+	VersionArgs  []string
+	InputFormat  string
+	OutputFormat string
+}
+
 // ResolveOptions controls behavior of pipeline path resolution.
 type ResolveOptions struct {
 	// CheckAvailability controls whether unavailable tools are filtered out.
@@ -55,7 +68,7 @@ func FindTarget(m *manifest.Manifest, targetPath string) (*TargetSpec, error) {
 }
 
 // ResolvePipeline chooses a compatible tool chain from source to output format.
-func ResolvePipeline(m *manifest.Manifest, sourcePath string, o manifest.Output) ([]manifest.PipelineStep, error) {
+func ResolvePipeline(m *manifest.Manifest, sourcePath string, o manifest.Output) ([]ResolvedStep, error) {
 	return ResolvePipelineWithOptions(m, sourcePath, o, ResolveOptions{CheckAvailability: true})
 }
 
@@ -65,7 +78,7 @@ func ResolvePipelineWithOptions(
 	sourcePath string,
 	o manifest.Output,
 	opts ResolveOptions,
-) ([]manifest.PipelineStep, error) {
+) ([]ResolvedStep, error) {
 	sourceExt := strings.ToLower(strings.TrimSpace(filepath.Ext(sourcePath)))
 	outputExt := strings.ToLower(strings.TrimSpace(filepath.Ext(o.Path)))
 	toolRepo := opts.ToolRepo
