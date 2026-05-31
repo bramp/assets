@@ -13,7 +13,7 @@
   - [x] internal/hash/
 - [x] Add baseline sample files for local iteration:
   - [x] assets.yaml
-  - [x] raw_sources/ with at least one PNG and one SVG input.
+  - [x] examples/complex/raw/ with at least one PNG and one SVG input.
 
 ## Phase 1: Tooling and Standards
 

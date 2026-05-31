@@ -117,7 +117,7 @@ meta:
 
 assets:
   - id: "app_logo"
-    source: "raw_sources/logo.svg"
+    source: "examples/complex/raw/test_svg.svg"
     owner: "Andrew Brampton"
     copyright: "© 2026 Andrew Brampton"
     license: "Proprietary"
@@ -140,7 +140,7 @@ assets:
           background: "#FFFFFF"
 
   - id: "search_icon"
-    source: "raw_sources/icons/search.png"
+    source: "examples/complex/raw/test_png.png"
     owner: "Material Design Authors"
     copyright: "© Google LLC"
     license: "Apache-2.0"
@@ -215,14 +215,14 @@ The lockfile also records command provenance for each output, including:
   "files": {
     "assets/images/logo_128_ie.png": {
       "sources": {
-        "raw_sources/logo.svg": {
+        "examples/complex/raw/test_svg.svg": {
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "size_bytes": 32768
         }
       },
       "provenance": {
         "command_chain": [
-          "resvg --dpi=96 raw_sources/logo.svg assets/images/logo_128_ie.png",
+          "resvg --dpi=96 examples/complex/raw/test_svg.svg assets/images/logo_128_ie.png",
           "oxipng -o 4 --strip safe assets/images/logo_128_ie.png"
         ],
         "tools": {
