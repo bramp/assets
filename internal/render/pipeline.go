@@ -65,7 +65,9 @@ func ResolvePipelineWithOptions(
 ) ([]manifest.PipelineStep, error) {
 	sourceExt := strings.ToLower(strings.TrimSpace(filepath.Ext(sourcePath)))
 	outputExt := strings.ToLower(strings.TrimSpace(filepath.Ext(o.Path)))
-	order := buildGraphPreferenceOrder(m, o)
+
+	order := buildPreferenceOrder(o.Options.Tools, m.Meta.Render.Defaults.Tools)
+
 	steps, err := resolveGraphPath(m.Meta.Render.Tools, order, sourceExt, outputExt, o.Options.ScaleMode, opts)
 	if err != nil {
 		return nil, err

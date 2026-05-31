@@ -15,10 +15,8 @@ import (
 
 var unresolvedPlaceholderRE = regexp.MustCompile(`\{[a-z_]+\}`)
 
-//nolint:gocognit // Explicit matrix assertions keep coverage intent clear.
+//nolint:gocognit,tparallel // Explicit matrix assertions keep coverage intent clear; test uses t.Setenv.
 func TestBuiltinDefaultTools_ExecuteEveryConfiguration(t *testing.T) {
-	t.Parallel()
-
 	testManifestYAML := `meta:
   project: "default-tool-matrix"
 assets: []
@@ -62,7 +60,7 @@ assets: []
 					outputExt = inputExt
 				}
 
-				inputPath := filepath.Join(workDir, "in"+inputExt)
+				inputPath := filepath.Join(workDir, fmt.Sprintf("in-%s-%s%s", toolName, mode, inputExt))
 				outputPath := filepath.Join(workDir, fmt.Sprintf("out-%s-%s%s", toolName, mode, outputExt))
 				if err := os.WriteFile(inputPath, []byte("not-empty\n"), 0o644); err != nil {
 					t.Fatalf("write input: %v", err)

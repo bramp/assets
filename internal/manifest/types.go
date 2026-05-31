@@ -108,6 +108,7 @@ func (p *ToolPreference) UnmarshalYAML(value *yaml.Node) error {
 }
 
 // PipelineStep describes one render tool invocation capability.
+// TODO Should PipelineStep have a full Accepts/Produces surely it should be the specific input, and specific output.
 type PipelineStep struct {
 	Tool       string   `yaml:"tool"`
 	Command    string   `yaml:"command"`

@@ -9,6 +9,11 @@ import (
 	"github.com/bramp/assets/internal/manifest"
 )
 
+// appendTerminalOptimizer appends a format-specific optimizer as the final
+// pipeline step when configured.
+//
+// This keeps optimization policy in the manifest (not hardcoded in planning)
+// and validates that the chosen optimizer is format-safe and available.
 func appendTerminalOptimizer(
 	cfg manifest.RenderConfig,
 	steps []manifest.PipelineStep,
@@ -58,11 +63,16 @@ func appendTerminalOptimizer(
 	return append(steps, optimizeStep), nil
 }
 
+// samePipelineStep compares only executable identity (tool + command) to avoid
+// appending duplicate terminal optimizer steps.
 func samePipelineStep(a manifest.PipelineStep, b manifest.PipelineStep) bool {
 	return strings.TrimSpace(a.Tool) == strings.TrimSpace(b.Tool) &&
 		strings.TrimSpace(a.Command) == strings.TrimSpace(b.Command)
 }
 
+// supportsScaleMode reports whether a step can satisfy the requested mode.
+// Empty mode or empty capability list is treated as permissive for backward
+// compatibility with tools that do not model mode constraints.
 func supportsScaleMode(supported []string, mode string) bool {
 	normMode := strings.ToLower(strings.TrimSpace(mode))
 	if normMode == "" || len(supported) == 0 {
@@ -77,10 +87,12 @@ func supportsScaleMode(supported []string, mode string) bool {
 	return false
 }
 
-func buildGraphPreferenceOrder(m *manifest.Manifest, o manifest.Output) []string {
-	return buildPreferenceOrder(o.Options.Tools, m.Meta.Render.Defaults.Tools)
-}
-
+// resolveGraphPath finds a compatible conversion path from sourceExt to
+// outputExt using a bounded breadth-first search.
+//
+// Why: shortest-path planning gives deterministic, easy-to-reason-about
+// pipelines while still allowing preference-based tie-breaking.
+//
 //nolint:funlen,gocognit // Path search weighs availability, format compatibility, and preferences.
 func resolveGraphPath(
 	tools map[string]manifest.PipelineStep,
@@ -181,6 +193,11 @@ func resolveGraphPath(
 	return resolved, nil
 }
 
+// buildAvailabilityChecker returns a tool-availability predicate honoring
+// ResolveOptions.CheckAvailability.
+//
+// Why: generation and tests can be host-agnostic, while execution paths can
+// enforce that required binaries exist.
 func buildAvailabilityChecker(opts ResolveOptions) func(string) bool {
 	if !opts.CheckAvailability {
 		return func(string) bool { return true }
@@ -188,6 +205,9 @@ func buildAvailabilityChecker(opts ResolveOptions) func(string) bool {
 	return binaryAvailable
 }
 
+// firstCommandToken extracts the executable token from a tool declaration.
+// Tool entries may include arguments, but availability checks need only the
+// binary name.
 func firstCommandToken(toolName string) string {
 	binary := strings.TrimSpace(toolName)
 	if binary == "" {
@@ -200,6 +220,9 @@ func firstCommandToken(toolName string) string {
 	return parts[0]
 }
 
+// producedFormats normalizes a tool's produces list into concrete extensions.
+// A wildcard produce entry resolves to the requested output extension so path
+// search can reason about exact intermediate formats.
 func producedFormats(produces []string, outputExt string) []string {
 	if len(produces) == 0 {
 		return nil
@@ -221,6 +244,8 @@ func producedFormats(produces []string, outputExt string) []string {
 	return result
 }
 
+// matchesFormatList reports whether format is accepted by list, honoring
+// wildcard entries and normalized extension matching.
 func matchesFormatList(list []string, format string) bool {
 	if len(list) == 0 || format == "" {
 		return false
@@ -235,6 +260,8 @@ func matchesFormatList(list []string, format string) bool {
 	return false
 }
 
+// graphPathScore ranks candidate paths by favoring shorter chains first and
+// then applying preference order as a deterministic tie-breaker.
 func graphPathScore(path []string, pref map[string]int) int {
 	score := len(path) * 1000
 	for i, n := range path {
@@ -247,6 +274,10 @@ func graphPathScore(path []string, pref map[string]int) int {
 	return score
 }
 
+// buildPreferenceOrder computes the effective per-output preference order.
+//
+// Why: output-level preferences can embed "auto" to splice defaults at a
+// specific position rather than replacing defaults entirely.
 func buildPreferenceOrder(outputPref manifest.ToolPreference, defaultPref manifest.ToolPreference) []string {
 	if len(outputPref) == 0 {
 		return append([]string(nil), defaultPref...)
@@ -265,6 +296,8 @@ func buildPreferenceOrder(outputPref manifest.ToolPreference, defaultPref manife
 	return order
 }
 
+// binaryAvailable reports whether a tool executable can be resolved on PATH.
+// It checks only the command token so tool declarations can remain flexible.
 func binaryAvailable(toolName string) bool {
 	binary := firstCommandToken(toolName)
 	if binary == "" {
