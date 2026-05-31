@@ -8,6 +8,7 @@ format:
 
 lint:
 	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found; install from https://golangci-lint.run/welcome/install/"; exit 1; }
+	@golangci-lint --version | grep -q "version 2\." || { echo "golangci-lint v2 is required by .golangci.yml"; exit 1; }
 	golangci-lint run --config .golangci.yml ./...
 
 analyze:
