@@ -3,74 +3,11 @@ package render
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/bramp/assets/internal/manifest"
 )
-
-// appendTerminalOptimizer appends a format-specific optimizer as the final
-// pipeline step when configured.
-//
-// This keeps optimization policy in the manifest (not hardcoded in planning)
-// and validates that the chosen optimizer is format-safe and available.
-func appendTerminalOptimizer(
-	cfg manifest.RenderConfig,
-	steps []ResolvedStep,
-	outputExt string,
-	opts ResolveOptions,
-	toolRepo ToolRepository,
-) ([]ResolvedStep, error) {
-	normExt := strings.ToLower(strings.TrimSpace(outputExt))
-	if normExt == "" || len(cfg.OptimizeByFormat) == 0 {
-		return steps, nil
-	}
-
-	optimizeStepName, ok := cfg.OptimizeByFormat[normExt]
-	if !ok {
-		return steps, nil
-	}
-	normOptimizeStepName := strings.TrimSpace(optimizeStepName)
-	if normOptimizeStepName == "" {
-		return steps, nil
-	}
-
-	optimizeDef, ok := cfg.Tools[normOptimizeStepName]
-	if !ok {
-		return nil, fmt.Errorf(
-			"optimizer %q configured for %q not found in render tools",
-			normOptimizeStepName,
-			normExt,
-		)
-	}
-	if !matchesFormatList(optimizeDef.Accepts, normExt) || !matchesFormatList(optimizeDef.Produces, normExt) {
-		return nil, fmt.Errorf(
-			"optimizer %q configured for %q must accept and produce %q",
-			normOptimizeStepName,
-			normExt,
-			normExt,
-		)
-	}
-
-	optimizeStep := resolvedStepFromTool(normOptimizeStepName, optimizeDef, normExt, normExt)
-
-	if len(steps) > 0 && sameResolvedStep(steps[len(steps)-1], optimizeStep) {
-		return steps, nil
-	}
-
-	toolAvailable := buildAvailabilityChecker(opts, toolRepo)
-	if !toolAvailable(optimizeStep.Tool) {
-		return nil, fmt.Errorf("optimizer tool %q for %q is not available", optimizeStep.Tool, normExt)
-	}
-
-	return append(steps, optimizeStep), nil
-}
-
-// sameResolvedStep compares only executable identity (tool + command) to avoid
-// appending duplicate terminal optimizer steps.
-func sameResolvedStep(a ResolvedStep, b ResolvedStep) bool {
-	return strings.TrimSpace(a.Tool) == strings.TrimSpace(b.Tool) &&
-		strings.TrimSpace(a.Command) == strings.TrimSpace(b.Command)
-}
 
 // supportsScaleMode reports whether a step can satisfy the requested mode.
 // Empty mode or empty capability list is treated as permissive for backward
@@ -82,11 +19,272 @@ func supportsScaleMode(supported []string, mode string) bool {
 	}
 	for _, m := range supported {
 		norm := strings.ToLower(strings.TrimSpace(m))
-		if norm == "*" || norm == normMode {
+		if norm == normMode {
 			return true
 		}
 	}
 	return false
+}
+
+type graphEdge struct {
+	From graphNode
+	To   graphNode
+	Step ResolvedStep
+}
+
+type pathState struct {
+	node  graphNode
+	steps []ResolvedStep
+}
+
+type pathSearchResult struct {
+	// solutions contains all candidate paths that satisfy the goal constraints.
+	solutions [][]ResolvedStep
+	// graph stores explored outgoing edges per node for debugging/visualization.
+	graph map[graphNode][]graphEdge
+}
+
+const (
+	extSVG  = ".svg"
+	extEPS  = ".eps"
+	extPDF  = ".pdf"
+	extPNG  = ".png"
+	extJPG  = ".jpg"
+	extJPEG = ".jpeg"
+	extWEBP = ".webp"
+	extGIF  = ".gif"
+	extBMP  = ".bmp"
+	extTIF  = ".tif"
+	extTIFF = ".tiff"
+)
+
+type graphNode struct {
+	// format is the file extension represented by this state (for example .png).
+	format string
+	// sized tracks whether a size-setting step has already occurred on the path.
+	sized bool
+	// optimized tracks whether the terminal optimization step has been applied.
+	optimized bool
+}
+
+// graphResolver encapsulates state and helpers for bounded graph search.
+type graphResolver struct {
+	tools             map[string]manifest.ToolSpec
+	preferenceRank    map[string]int
+	sourceExt         string
+	outputExt         string
+	scaleMode         string
+	requireSized      bool
+	checkAvailability bool
+	toolRepo          ToolRepository
+	terminalOptimizer *candidateTool
+	requireOptimized  bool
+	initErr           error
+	maxDepth          int
+}
+
+func newGraphResolver(
+	tools map[string]manifest.ToolSpec,
+	optimizeByFormat map[string]string,
+	preferenceRank map[string]int,
+	sourceExt string,
+	outputExt string,
+	scaleMode string,
+	requireSized bool,
+	checkAvailability bool,
+	toolRepo ToolRepository,
+) *graphResolver {
+	if toolRepo == nil {
+		toolRepo = NewToolRepository()
+	}
+	terminalOptimizer, requireOptimized, err := resolveTerminalOptimizer(
+		tools,
+		optimizeByFormat,
+		outputExt,
+		checkAvailability,
+		toolRepo,
+	)
+	return &graphResolver{
+		tools:             tools,
+		preferenceRank:    preferenceRank,
+		sourceExt:         sourceExt,
+		outputExt:         outputExt,
+		scaleMode:         scaleMode,
+		requireSized:      requireSized,
+		checkAvailability: checkAvailability,
+		toolRepo:          toolRepo,
+		terminalOptimizer: terminalOptimizer,
+		requireOptimized:  requireOptimized,
+		initErr:           err,
+		maxDepth:          4,
+	}
+}
+
+func (r *graphResolver) resolve() ([]ResolvedStep, error) {
+	if r.initErr != nil {
+		return nil, r.initErr
+	}
+	// Search begins in the source format with no size/optimization guarantees.
+	start := graphNode{format: r.sourceExt, sized: false, optimized: false}
+	search := r.findCandidatePathsWithGraph(start, r.outputExt, r.requireSized, r.requireOptimized)
+	solutions := search.solutions
+	if len(solutions) == 0 {
+		return nil, fmt.Errorf("no compatible conversion path from %q to %q", r.sourceExt, r.outputExt)
+	}
+	bestPath := r.chooseBestPath(solutions)
+	return append([]ResolvedStep(nil), bestPath...), nil
+}
+
+// neighborEdges returns direct transitions from one graph state.
+func (r *graphResolver) neighborEdges(fromNode graphNode) []graphEdge {
+	// optimized is terminal by design: once optimized, no further steps are valid.
+	if fromNode.optimized {
+		return nil
+	}
+
+	edges := make([]graphEdge, 0)
+	from := fromNode.format
+	for _, candidate := range r.candidateTools() {
+		if !matchesFormatList(candidate.Tool.Accepts, from) {
+			continue
+		}
+		setsSize := candidate.Tool.SetsTargetSize()
+
+		// This limits us to direct transitions from source to output format, but that is sufficient to
+		// model optimizers and keeps the graph size manageable without precomputing a full format conversion graph.
+		for _, to := range producedFormats(candidate.Tool.Produces, r.outputExt) {
+			if to == "" {
+				continue
+			}
+			// Once the size is correct, all remaining steps are considered to produce the correct size.
+			toNode := graphNode{format: to, sized: fromNode.sized || setsSize, optimized: false}
+			edges = append(edges, graphEdge{
+				From: fromNode,
+				To:   toNode,
+				Step: resolvedStepFromTool(candidate.Name, candidate.Tool, from, to),
+			})
+		}
+	}
+
+	if r.terminalOptimizer != nil && from == r.outputExt {
+		// Optimization is modeled as a same-format terminal transition.
+		optNode := graphNode{format: from, sized: fromNode.sized, optimized: true}
+		edges = append(edges, graphEdge{
+			From: fromNode,
+			To:   optNode,
+			Step: resolvedStepFromTool(r.terminalOptimizer.Name, r.terminalOptimizer.Tool, from, from),
+		})
+	}
+
+	return edges
+}
+
+type candidateTool struct {
+	Name string
+	Tool manifest.ToolSpec
+}
+
+// candidateTools returns a deterministic, filtered set of non-optimizer tools
+// eligible for normal graph expansion.
+func (r *graphResolver) candidateTools() []candidateTool {
+	keys := make([]string, 0, len(r.tools))
+	for name := range r.tools {
+		keys = append(keys, name)
+	}
+	sort.Strings(keys)
+
+	toolsOut := make([]candidateTool, 0, len(keys))
+	for _, name := range keys {
+		tool := r.tools[name]
+		normName := strings.ToLower(strings.TrimSpace(name))
+		if normName == "" || normName == "none" || normName == "off" {
+			continue
+		}
+		if r.terminalOptimizer != nil && normName == r.terminalOptimizer.Name {
+			continue
+		}
+		if !supportsScaleMode(tool.ScaleModes, r.scaleMode) {
+			continue
+		}
+		if r.checkAvailability && !r.toolRepo.Available(tool.Tool) {
+			continue
+		}
+		toolsOut = append(toolsOut, candidateTool{Name: normName, Tool: tool})
+	}
+
+	return toolsOut
+}
+
+// findCandidatePathsWithGraph performs a bounded breadth-first search (BFS)
+// over graphNode states.
+//
+// Why BFS: it naturally discovers shortest pipelines first. We still keep
+// equal-depth alternatives so later preference scoring can break ties.
+func (r *graphResolver) findCandidatePathsWithGraph(
+	start graphNode,
+	goalFormat string,
+	requireGoalSized bool,
+	requireGoalOptimized bool,
+) pathSearchResult {
+	// FIFO queue gives classic BFS traversal by path depth.
+	queue := []pathState{{node: start, steps: nil}}
+	// best tracks the shortest known depth per node for pruning.
+	best := make(map[graphNode]int)
+	best[start] = 0
+	// graph is built lazily so callers can inspect what the search explored.
+	result := pathSearchResult{graph: map[graphNode][]graphEdge{}}
+
+	for len(queue) > 0 {
+		// Dequeue next state in BFS order.
+		state := queue[0]
+		queue = queue[1:]
+
+		edges, ok := result.graph[state.node]
+		if !ok {
+			// Expand neighbors once per node and memoize for reuse/debug output.
+			edges = r.neighborEdges(state.node)
+			result.graph[state.node] = edges
+		}
+
+		// Cap search depth to bound worst-case exploration cost.
+		if len(state.steps) >= r.maxDepth {
+			continue
+		}
+
+		for _, edge := range edges {
+			nextSteps := append(append([]ResolvedStep(nil), state.steps...), edge.Step)
+			// Goal is format + optional sized/optimized constraints.
+			if edge.To.format == goalFormat &&
+				(!requireGoalSized || edge.To.sized) &&
+				(!requireGoalOptimized || edge.To.optimized) {
+				result.solutions = append(result.solutions, nextSteps)
+				continue
+			}
+			depth := len(nextSteps)
+			// Keep equal-depth alternatives for preference tie-breaking; prune only
+			// strictly worse (deeper) revisits of the same state.
+			if prev, ok := best[edge.To]; ok && depth > prev {
+				continue
+			}
+			best[edge.To] = depth
+			queue = append(queue, pathState{node: edge.To, steps: nextSteps})
+		}
+	}
+
+	return result
+}
+
+func (r *graphResolver) chooseBestPath(paths [][]ResolvedStep) []ResolvedStep {
+	bestPath := paths[0]
+	bestScore := graphPathScore(bestPath, r.preferenceRank)
+	for _, p := range paths[1:] {
+		s := graphPathScore(p, r.preferenceRank)
+		if s < bestScore {
+			bestPath = p
+			bestScore = s
+		}
+	}
+	return bestPath
 }
 
 // resolveGraphPath finds a compatible conversion path from sourceExt to
@@ -94,96 +292,91 @@ func supportsScaleMode(supported []string, mode string) bool {
 //
 // Why: shortest-path planning gives deterministic, easy-to-reason-about
 // pipelines while still allowing preference-based tie-breaking.
-//
-//nolint:gocognit // Path search weighs availability, format compatibility, and preferences.
 func resolveGraphPath(
-	tools map[string]manifest.PipelineStep,
+	tools map[string]manifest.ToolSpec,
+	optimizeByFormat map[string]string,
 	preferenceRank map[string]int,
 	sourceExt string,
 	outputExt string,
 	scaleMode string,
+	requireSized bool,
 	opts ResolveOptions,
 	toolRepo ToolRepository,
 ) ([]ResolvedStep, error) {
 	if sourceExt == "" || outputExt == "" {
 		return nil, errors.New("unable to resolve conversion path for empty source/output format")
 	}
-	toolAvailable := buildAvailabilityChecker(opts, toolRepo)
-	maxDepth := 4
+	resolver := newGraphResolver(
+		tools,
+		optimizeByFormat,
+		preferenceRank,
+		sourceExt,
+		outputExt,
+		scaleMode,
+		requireSized,
+		opts.CheckAvailability,
+		toolRepo,
+	)
+	return resolver.resolve()
+}
 
-	type pathState struct {
-		format string
-		steps  []ResolvedStep
-	}
-	queue := []pathState{{format: sourceExt, steps: nil}}
-	best := make(map[string]int)
-	best[sourceExt] = 0
-	var solutions [][]ResolvedStep
-
-	for len(queue) > 0 {
-		state := queue[0]
-		queue = queue[1:]
-		if len(state.steps) >= maxDepth {
-			continue
-		}
-
-		for name, step := range tools {
-			normName := strings.ToLower(strings.TrimSpace(name))
-			if normName == "" || !supportsScaleMode(step.ScaleModes, scaleMode) {
-				continue
-			}
-			if !toolAvailable(step.Tool) {
-				continue
-			}
-			if normName == "none" || normName == "off" {
-				continue
-			}
-			if !matchesFormatList(step.Accepts, state.format) {
-				continue
-			}
-
-			for _, produced := range producedFormats(step.Produces, outputExt) {
-				if produced == "" {
-					continue
-				}
-				nextSteps := append(
-					append([]ResolvedStep(nil), state.steps...),
-					resolvedStepFromTool(normName, step, state.format, produced),
-				)
-				if produced == outputExt {
-					solutions = append(solutions, nextSteps)
-					continue
-				}
-				depth := len(nextSteps)
-				if prev, ok := best[produced]; ok && depth >= prev {
-					continue
-				}
-				best[produced] = depth
-				queue = append(queue, pathState{format: produced, steps: nextSteps})
-			}
-		}
+func resolveTerminalOptimizer(
+	tools map[string]manifest.ToolSpec,
+	optimizeByFormat map[string]string,
+	outputExt string,
+	checkAvailability bool,
+	toolRepo ToolRepository,
+) (*candidateTool, bool, error) {
+	normExt := strings.ToLower(strings.TrimSpace(outputExt))
+	if normExt == "" || len(optimizeByFormat) == 0 {
+		return nil, false, nil
 	}
 
-	if len(solutions) == 0 {
-		return nil, fmt.Errorf("no compatible conversion path from %q to %q", sourceExt, outputExt)
+	optimizeStepName, ok := optimizeByFormat[normExt]
+	if !ok {
+		return nil, false, nil
+	}
+	normOptimizeStepName := strings.ToLower(strings.TrimSpace(optimizeStepName))
+	if normOptimizeStepName == "" {
+		return nil, false, nil
 	}
 
-	bestPath := solutions[0]
-	bestScore := graphPathScore(bestPath, preferenceRank)
-	for _, p := range solutions[1:] {
-		s := graphPathScore(p, preferenceRank)
-		if s < bestScore {
-			bestPath = p
-			bestScore = s
+	optimizeDef, ok := findToolSpec(tools, normOptimizeStepName)
+	if !ok {
+		return nil, false, fmt.Errorf(
+			"optimizer %q configured for %q not found in render tools",
+			normOptimizeStepName,
+			normExt,
+		)
+	}
+	if !matchesFormatList(optimizeDef.Accepts, normExt) || !matchesFormatList(optimizeDef.Produces, normExt) {
+		return nil, false, fmt.Errorf(
+			"optimizer %q configured for %q must accept and produce %q",
+			normOptimizeStepName,
+			normExt,
+			normExt,
+		)
+	}
+	if checkAvailability && !toolRepo.Available(optimizeDef.Tool) {
+		return nil, false, fmt.Errorf("optimizer tool %q for %q is not available", optimizeDef.Tool, normExt)
+	}
+
+	return &candidateTool{Name: normOptimizeStepName, Tool: optimizeDef}, true, nil
+}
+
+func findToolSpec(tools map[string]manifest.ToolSpec, toolName string) (manifest.ToolSpec, bool) {
+	normName := strings.ToLower(strings.TrimSpace(toolName))
+	for name, spec := range tools {
+		if strings.ToLower(strings.TrimSpace(name)) == normName {
+			return spec, true
 		}
 	}
-
-	return append([]ResolvedStep(nil), bestPath...), nil
+	return manifest.ToolSpec{}, false
 }
 
 func resolvedStepFromTool(
 	name string,
-	step manifest.PipelineStep,
+	step manifest.ToolSpec,
 	inputFormat string,
 	outputFormat string,
 ) ResolvedStep {
@@ -197,21 +390,6 @@ func resolvedStepFromTool(
 		InputFormat:  strings.ToLower(strings.TrimSpace(inputFormat)),
 		OutputFormat: strings.ToLower(strings.TrimSpace(outputFormat)),
 	}
-}
-
-// buildAvailabilityChecker returns a tool-availability predicate honoring
-// ResolveOptions.CheckAvailability.
-//
-// Why: generation and tests can be host-agnostic, while execution paths can
-// enforce that required binaries exist.
-func buildAvailabilityChecker(opts ResolveOptions, repo ToolRepository) func(string) bool {
-	if !opts.CheckAvailability {
-		return func(string) bool { return true }
-	}
-	if repo == nil {
-		repo = NewToolRepository()
-	}
-	return repo.Available
 }
 
 // firstCommandToken extracts the executable token from a tool declaration.
@@ -230,22 +408,17 @@ func firstCommandToken(toolName string) string {
 }
 
 // producedFormats normalizes a tool's produces list into concrete extensions.
-// A wildcard produce entry resolves to the requested output extension so path
-// search can reason about exact intermediate formats.
 func producedFormats(produces []string, outputExt string) []string {
 	if len(produces) == 0 {
 		return nil
 	}
+	// outputExt is currently unused after wildcard removal, but is kept to avoid
+	// a wider signature change in callers.
+	_ = outputExt
 	result := make([]string, 0, len(produces))
 	for _, p := range produces {
 		norm := strings.ToLower(strings.TrimSpace(p))
 		if norm == "" {
-			continue
-		}
-		if norm == "*" {
-			if outputExt != "" {
-				result = append(result, outputExt)
-			}
 			continue
 		}
 		result = append(result, norm)
@@ -253,8 +426,8 @@ func producedFormats(produces []string, outputExt string) []string {
 	return result
 }
 
-// matchesFormatList reports whether format is accepted by list, honoring
-// wildcard entries and normalized extension matching.
+// matchesFormatList reports whether format is accepted by list using
+// normalized extension matching.
 func matchesFormatList(list []string, format string) bool {
 	if len(list) == 0 || format == "" {
 		return false
@@ -262,7 +435,7 @@ func matchesFormatList(list []string, format string) bool {
 	normFormat := strings.ToLower(strings.TrimSpace(format))
 	for _, v := range list {
 		norm := strings.ToLower(strings.TrimSpace(v))
-		if norm == "*" || norm == normFormat {
+		if norm == normFormat {
 			return true
 		}
 	}
@@ -318,4 +491,46 @@ func buildPreferenceRank(outputPref manifest.ToolPreference, defaultPref manifes
 	}
 
 	return rank
+}
+
+func requireSizedGoal(sourceExt string, outputExt string, width int, height int) bool {
+	if width <= 0 || height <= 0 {
+		return false
+	}
+	normSource := strings.ToLower(strings.TrimSpace(sourceExt))
+	normOutput := strings.ToLower(strings.TrimSpace(outputExt))
+	if normSource != "" && normSource == normOutput && isResizableFormat(normSource) {
+		return true
+	}
+	return isVectorFormat(normSource)
+}
+
+func isResizableFormat(ext string) bool {
+	switch strings.ToLower(strings.TrimSpace(ext)) {
+	case extSVG, extEPS, extPDF,
+		extPNG, extJPG, extJPEG, extWEBP, extGIF, extBMP, extTIF, extTIFF:
+		return true
+	default:
+		return false
+	}
+}
+
+func isVectorFormat(ext string) bool {
+	switch strings.ToLower(strings.TrimSpace(ext)) {
+	case extSVG, extEPS, extPDF:
+		return true
+	default:
+		return false
+	}
+}
+
+func hasExplicitToolPreference(pref manifest.ToolPreference) bool {
+	for _, name := range pref {
+		norm := strings.ToLower(strings.TrimSpace(name))
+		if norm == "" || norm == "auto" {
+			continue
+		}
+		return true
+	}
+	return false
 }

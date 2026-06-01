@@ -4,7 +4,7 @@
 GENERATED_ASSET_FILES := assets/icons/icon_24.png assets/images/logo_64.png
 
 assets/icons/icon_24.png: raw/icon.png
-  # vips resize 'raw/icon.png' '__tmp1__.png' 1
+  # magick 'raw/icon.png' -resize 24x24 -background 'transparent' -gravity center -extent 24x24 '__tmp1__.png'
   # oxipng -o 3 --strip safe --out 'assets/icons/icon_24.png' '__tmp1__.png'
 assets/images/logo_64.png: raw/logo.svg
   # resvg --width 64 --height 64 'raw/logo.svg' '__tmp1__.png'

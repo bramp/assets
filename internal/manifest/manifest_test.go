@@ -266,7 +266,7 @@ func TestValidate_OptimizeByFormat(t *testing.T) {
 			Project: "test",
 			Render: RenderConfig{
 				Defaults: RenderDefaults{Tools: []string{"oxipng"}},
-				Tools: map[string]PipelineStep{
+				Tools: map[string]ToolSpec{
 					"oxipng": {
 						Tool:     "oxipng",
 						Command:  "oxipng -o 3 --strip safe {output}",

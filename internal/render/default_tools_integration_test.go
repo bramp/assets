@@ -95,7 +95,7 @@ assets: []
 	}
 }
 
-func missingBinaries(tools map[string]manifest.PipelineStep) []string {
+func missingBinaries(tools map[string]manifest.ToolSpec) []string {
 	uniq := map[string]struct{}{}
 	for _, step := range tools {
 		name := strings.TrimSpace(step.Tool)
@@ -115,7 +115,7 @@ func missingBinaries(tools map[string]manifest.PipelineStep) []string {
 	return missing
 }
 
-func sortedAvailableToolNames(tools map[string]manifest.PipelineStep) []string {
+func sortedAvailableToolNames(tools map[string]manifest.ToolSpec) []string {
 	out := make([]string, 0, len(tools))
 	for name, step := range tools {
 		bin := strings.TrimSpace(step.Tool)

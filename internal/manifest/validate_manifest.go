@@ -50,7 +50,7 @@ func validateAsset(
 	cfg ValidationConfig,
 	seenSources map[string]string,
 	seenOutputs map[string]string,
-	tools map[string]PipelineStep,
+	tools map[string]ToolSpec,
 ) []error {
 	var errs []error
 	ref := assetRef(asset, idx)
@@ -109,7 +109,7 @@ func validateOutput(
 	idx int,
 	out Output,
 	seenOutputs map[string]string,
-	tools map[string]PipelineStep,
+	tools map[string]ToolSpec,
 ) []error {
 	var errs []error
 	outputRef := fmt.Sprintf("%s output[%d]", assetRef, idx)

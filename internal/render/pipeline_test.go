@@ -17,7 +17,7 @@ func TestResolvePipeline_PreferenceTieBreak(t *testing.T) {
 		Meta: manifest.Meta{
 			Render: manifest.RenderConfig{
 				Defaults: manifest.RenderDefaults{Tools: manifest.ToolPreference{"resvg"}},
-				Tools: map[string]manifest.PipelineStep{
+				Tools: map[string]manifest.ToolSpec{
 					"resvg": {
 						Tool:     "resvg",
 						Accepts:  []string{".svg"},
@@ -60,7 +60,7 @@ func TestResolvePipeline_ToolAvailabilityMatrix(t *testing.T) {
 			Meta: manifest.Meta{
 				Render: manifest.RenderConfig{
 					Defaults: manifest.RenderDefaults{Tools: manifest.ToolPreference{"resvg", "inkscape"}},
-					Tools: map[string]manifest.PipelineStep{
+					Tools: map[string]manifest.ToolSpec{
 						"resvg": {
 							Tool:     primaryTool,
 							Accepts:  []string{".svg"},
@@ -312,7 +312,7 @@ func TestResolvePipeline_CommandChainTable(t *testing.T) {
 			Meta: manifest.Meta{
 				Render: manifest.RenderConfig{
 					Defaults: manifest.RenderDefaults{Tools: manifest.ToolPreference{"rsvg", "optipng"}},
-					Tools: map[string]manifest.PipelineStep{
+					Tools: map[string]manifest.ToolSpec{
 						"rsvg": {
 							Tool:         rasterTool,
 							Accepts:      []string{".svg"},
@@ -438,7 +438,7 @@ func TestResolvePipeline_AppendsConfiguredTerminalOptimizer(t *testing.T) {
 				OptimizeByFormat: map[string]string{
 					".png": "oxipng",
 				},
-				Tools: map[string]manifest.PipelineStep{
+				Tools: map[string]manifest.ToolSpec{
 					"resvg": {
 						Tool:         "resvg",
 						Accepts:      []string{".svg"},
@@ -484,7 +484,7 @@ func TestResolvePipeline_DoesNotDuplicateTerminalOptimizer(t *testing.T) {
 				OptimizeByFormat: map[string]string{
 					".png": "oxipng",
 				},
-				Tools: map[string]manifest.PipelineStep{
+				Tools: map[string]manifest.ToolSpec{
 					"oxipng": {
 						Tool:     "oxipng",
 						Accepts:  []string{".png"},
@@ -557,4 +557,298 @@ func TestPlannedCommands_UsesPerStepIntermediateExtensions(t *testing.T) {
 
 func expandedCommandsForTest(steps []ResolvedStep, ctx BuildContext) []string {
 	return PlannedCommands(steps, ctx)
+}
+
+func TestResolvePipeline_SizedStateRequiresResizeFallback(t *testing.T) {
+	t.Parallel()
+
+	m := &manifest.Manifest{
+		Meta: manifest.Meta{
+			Render: manifest.RenderConfig{
+				Defaults: manifest.RenderDefaults{Tools: manifest.ToolPreference{"svg2png", "png-resize"}},
+				Tools: map[string]manifest.ToolSpec{
+					"svg2png": {
+						Tool:     "svg2png",
+						Accepts:  []string{".svg"},
+						Produces: []string{".png"},
+						Command:  "svg2png {input} {output}",
+					},
+					"png-resize": {
+						Tool:         "png-resize",
+						Accepts:      []string{".png"},
+						Produces:     []string{".png"},
+						SizeTemplate: "-resize {width}x{height}",
+						Command:      "png-resize {input} {size} {output}",
+					},
+				},
+			},
+		},
+	}
+
+	steps, err := ResolvePipelineWithOptions(
+		m,
+		"raw/logo.svg",
+		manifest.Output{Path: "out/logo.png", Width: 128, Height: 128, Options: manifest.Options{ScaleMode: "fit"}},
+		ResolveOptions{CheckAvailability: false},
+	)
+	if err != nil {
+		t.Fatalf("resolve pipeline: %v", err)
+	}
+	if len(steps) != 2 {
+		t.Fatalf("expected two-step fallback path, got %+v", steps)
+	}
+	if steps[0].Name != "svg2png" || steps[1].Name != "png-resize" {
+		t.Fatalf("unexpected step chain: %+v", steps)
+	}
+
+	commands := expandedCommandsForTest(steps, BuildContext{
+		InputPath:  "raw/logo.svg",
+		OutputPath: "out/logo.png",
+		Width:      128,
+		Height:     128,
+		ScaleMode:  "fit",
+		Background: "transparent",
+		TmpPath:    "/tmp/stage1.tmp",
+		Tmp2Path:   "/tmp/stage2.tmp",
+	})
+	if len(commands) != 2 {
+		t.Fatalf("unexpected command count: %d", len(commands))
+	}
+	if !strings.Contains(commands[0], "svg2png") || !strings.Contains(commands[1], "png-resize") {
+		t.Fatalf("unexpected commands: %+v", commands)
+	}
+}
+
+func TestResolvePipeline_SizedStatePrefersDirectSizedTool(t *testing.T) {
+	t.Parallel()
+
+	m := &manifest.Manifest{
+		Meta: manifest.Meta{
+			Render: manifest.RenderConfig{
+				Defaults: manifest.RenderDefaults{
+					Tools: manifest.ToolPreference{"svg2png-sized", "svg2png", "png-resize"},
+				},
+				Tools: map[string]manifest.ToolSpec{
+					"svg2png-sized": {
+						Tool:     "svg2png-sized",
+						Accepts:  []string{".svg"},
+						Produces: []string{".png"},
+						Command:  "svg2png-sized {input} -w {width} -h {height} {output}",
+					},
+					"svg2png": {
+						Tool:     "svg2png",
+						Accepts:  []string{".svg"},
+						Produces: []string{".png"},
+						Command:  "svg2png {input} {output}",
+					},
+					"png-resize": {
+						Tool:         "png-resize",
+						Accepts:      []string{".png"},
+						Produces:     []string{".png"},
+						SizeTemplate: "-resize {width}x{height}",
+						Command:      "png-resize {input} {size} {output}",
+					},
+				},
+			},
+		},
+	}
+
+	steps, err := ResolvePipelineWithOptions(
+		m,
+		"raw/logo.svg",
+		manifest.Output{Path: "out/logo.png", Width: 128, Height: 128, Options: manifest.Options{ScaleMode: "fit"}},
+		ResolveOptions{CheckAvailability: false},
+	)
+	if err != nil {
+		t.Fatalf("resolve pipeline: %v", err)
+	}
+	if len(steps) != 1 {
+		t.Fatalf("expected single sized step, got %+v", steps)
+	}
+	if steps[0].Name != "svg2png-sized" {
+		t.Fatalf("expected direct sized tool, got %+v", steps)
+	}
+}
+
+func TestResolvePipeline_OptimizerIsTerminalAfterSizing(t *testing.T) {
+	t.Parallel()
+
+	m := &manifest.Manifest{
+		Meta: manifest.Meta{
+			Render: manifest.RenderConfig{
+				Defaults: manifest.RenderDefaults{
+					Tools: manifest.ToolPreference{"oxipng", "svg2png", "png-resize"},
+				},
+				OptimizeByFormat: map[string]string{
+					".png": "oxipng",
+				},
+				Tools: map[string]manifest.ToolSpec{
+					"svg2png": {
+						Tool:     "svg2png",
+						Accepts:  []string{".svg"},
+						Produces: []string{".png"},
+						Command:  "svg2png {input} {output}",
+					},
+					"png-resize": {
+						Tool:         "png-resize",
+						Accepts:      []string{".png"},
+						Produces:     []string{".png"},
+						SizeTemplate: "-resize {width}x{height}",
+						Command:      "png-resize {input} {size} {output}",
+					},
+					"oxipng": {
+						Tool:     "oxipng",
+						Accepts:  []string{".png"},
+						Produces: []string{".png"},
+						Command:  "oxipng -o 3 --strip safe {input} --out {output}",
+					},
+				},
+			},
+		},
+	}
+
+	steps, err := ResolvePipelineWithOptions(
+		m,
+		"raw/logo.svg",
+		manifest.Output{Path: "out/logo.png", Width: 128, Height: 128, Options: manifest.Options{ScaleMode: "fit"}},
+		ResolveOptions{CheckAvailability: false},
+	)
+	if err != nil {
+		t.Fatalf("resolve pipeline: %v", err)
+	}
+	if len(steps) != 3 {
+		t.Fatalf("expected convert + resize + optimize, got %+v", steps)
+	}
+	if steps[0].Name != "svg2png" || steps[1].Name != "png-resize" || steps[2].Name != "oxipng" {
+		t.Fatalf("expected optimizer to be terminal step, got %+v", steps)
+	}
+}
+
+func TestResolvePipeline_OptimizerTieBreakPrefersDefaultToolOrder(t *testing.T) {
+	t.Parallel()
+
+	m := &manifest.Manifest{
+		Meta: manifest.Meta{
+			Render: manifest.RenderConfig{
+				Defaults: manifest.RenderDefaults{
+					Tools: manifest.ToolPreference{"resvg", "inkscape", "oxipng"},
+				},
+				OptimizeByFormat: map[string]string{
+					".png": "oxipng",
+				},
+				Tools: map[string]manifest.ToolSpec{
+					"resvg": {
+						Tool:         "resvg",
+						Accepts:      []string{".svg"},
+						Produces:     []string{".png"},
+						SizeTemplate: "--width {width} --height {height}",
+						Command:      "resvg {size} {input} {output}",
+					},
+					"inkscape": {
+						Tool:     "inkscape",
+						Accepts:  []string{".svg"},
+						Produces: []string{".png"},
+						Command:  "inkscape {input} --export-filename={output} --export-width={width} --export-height={height}",
+					},
+					"oxipng": {
+						Tool:     "oxipng",
+						Accepts:  []string{".png"},
+						Produces: []string{".png"},
+						Command:  "oxipng -o 3 --strip safe --out {output} {input}",
+					},
+				},
+			},
+		},
+	}
+
+	steps, err := ResolvePipelineWithOptions(
+		m,
+		"raw/logo.svg",
+		manifest.Output{Path: "out/logo.png", Width: 64, Height: 64, Options: manifest.Options{ScaleMode: "fit"}},
+		ResolveOptions{CheckAvailability: false},
+	)
+	if err != nil {
+		t.Fatalf("resolve pipeline: %v", err)
+	}
+	if len(steps) != 2 {
+		t.Fatalf("expected converter + optimizer path, got %+v", steps)
+	}
+	if steps[0].Name != "resvg" {
+		t.Fatalf("expected tie-break to prefer resvg, got %+v", steps)
+	}
+	if steps[1].Name != "oxipng" {
+		t.Fatalf("expected optimizer as terminal step, got %+v", steps)
+	}
+}
+
+func TestResolveGraphDOT_ContainsNodesAndEdges(t *testing.T) {
+	t.Parallel()
+
+	m := &manifest.Manifest{
+		Meta: manifest.Meta{
+			Render: manifest.RenderConfig{
+				Defaults: manifest.RenderDefaults{Tools: manifest.ToolPreference{"resvg", "eps2png", "oxipng"}},
+				OptimizeByFormat: map[string]string{
+					".png": "oxipng",
+				},
+				Tools: map[string]manifest.ToolSpec{
+					"resvg": {
+						Tool:         "resvg",
+						Accepts:      []string{".svg"},
+						Produces:     []string{".png"},
+						SizeTemplate: "--width {width} --height {height}",
+						Command:      "resvg {size} {input} {output}",
+					},
+					"eps2png": {
+						Tool:         "eps2png",
+						Accepts:      []string{".eps"},
+						Produces:     []string{".png"},
+						SizeTemplate: "--width {width} --height {height}",
+						Command:      "eps2png {size} {input} {output}",
+					},
+					"oxipng": {
+						Tool:     "oxipng",
+						Accepts:  []string{".png"},
+						Produces: []string{".png"},
+						Command:  "oxipng -o 3 --strip safe --out {output} {input}",
+					},
+				},
+			},
+		},
+	}
+
+	dot, err := ResolveGraphDOT(
+		m,
+		"raw/logo.svg",
+		manifest.Output{Path: "out/logo.png", Width: 64, Height: 64, Options: manifest.Options{ScaleMode: "fit"}},
+		ResolveOptions{CheckAvailability: false},
+	)
+	if err != nil {
+		t.Fatalf("resolve graph DOT: %v", err)
+	}
+
+	for _, want := range []string{
+		"digraph render_graph {",
+		"label=\"raw/logo.svg -> out/logo.png\";",
+		"fillcolor=\"#d9f2d9\"",
+		"fillcolor=\"#ffe0b2\"",
+		".svg",
+		".png",
+		"optimized=true",
+		"resvg",
+		"oxipng",
+	} {
+		if !strings.Contains(dot, want) {
+			t.Fatalf("expected DOT output to contain %q, got:\n%s", want, dot)
+		}
+	}
+
+	for _, notWant := range []string{
+		".eps",
+		".svg\\nsized=true",
+	} {
+		if strings.Contains(dot, notWant) {
+			t.Fatalf("expected DOT output to omit %q, got:\n%s", notWant, dot)
+		}
+	}
 }

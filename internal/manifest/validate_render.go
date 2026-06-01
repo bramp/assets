@@ -37,14 +37,14 @@ func validateRenderConfig(cfg RenderConfig) []error {
 	return errs
 }
 
-func validateStageOrder(prefix string, order ToolPreference, registry map[string]PipelineStep) []error {
+func validateStageOrder(prefix string, order ToolPreference, registry map[string]ToolSpec) []error {
 	return validateStagePreference(prefix, order, registry, true, true)
 }
 
 func validateStagePreference(
 	prefix string,
 	pref ToolPreference,
-	registry map[string]PipelineStep,
+	registry map[string]ToolSpec,
 	allowAuto bool,
 	allowDisable bool,
 ) []error {
@@ -69,51 +69,45 @@ func validateStagePreference(
 }
 
 func validSupportsFormat(v string) bool {
-	if v == "*" {
-		return true
-	}
 	return strings.HasPrefix(v, ".")
 }
 
 func validScaleModeValue(v string) bool {
-	if v == "*" {
-		return true
-	}
 	return validScaleMode(v)
 }
 
-func validatePipelineStepSupports(prefix string, step PipelineStep) []error {
+func validateToolSpecSupports(prefix string, step ToolSpec) []error {
 	var errs []error
 	for i, f := range step.Accepts {
 		norm := strings.TrimSpace(f)
 		if !validSupportsFormat(norm) {
-			errs = append(errs, fmt.Errorf("%s.accepts[%d] %q must be '*' or extension like .png", prefix, i, f))
+			errs = append(errs, fmt.Errorf("%s.accepts[%d] %q must be an extension like .png", prefix, i, f))
 		}
 	}
 	for i, f := range step.Produces {
 		norm := strings.TrimSpace(f)
 		if !validSupportsFormat(norm) {
-			errs = append(errs, fmt.Errorf("%s.produces[%d] %q must be '*' or extension like .png", prefix, i, f))
+			errs = append(errs, fmt.Errorf("%s.produces[%d] %q must be an extension like .png", prefix, i, f))
 		}
 	}
 	return errs
 }
 
-func validatePipelineStepScaleModes(prefix string, step PipelineStep) []error {
+func validateToolSpecScaleModes(prefix string, step ToolSpec) []error {
 	var errs []error
 	for i, mode := range step.ScaleModes {
 		norm := strings.TrimSpace(mode)
 		if !validScaleModeValue(norm) {
 			errs = append(
 				errs,
-				fmt.Errorf("%s.scale_modes[%d] %q must be '*' or one of fit, fill, stretch, crop", prefix, i, mode),
+				fmt.Errorf("%s.scale_modes[%d] %q must be one of fit, fill, stretch, crop", prefix, i, mode),
 			)
 		}
 	}
 	return errs
 }
 
-func validateStageRegistry(prefix string, registry map[string]PipelineStep) []error {
+func validateStageRegistry(prefix string, registry map[string]ToolSpec) []error {
 	var errs []error
 	for name, step := range registry {
 		if strings.TrimSpace(name) == "" {
@@ -126,14 +120,14 @@ func validateStageRegistry(prefix string, registry map[string]PipelineStep) []er
 		if strings.TrimSpace(step.Command) == "" {
 			errs = append(errs, fmt.Errorf("%s[%q]: command is required", prefix, name))
 		}
-		errs = append(errs, validatePipelineStepSize(prefix, name, step)...)
-		errs = append(errs, validatePipelineStepSupports(fmt.Sprintf("%s[%q]", prefix, name), step)...)
-		errs = append(errs, validatePipelineStepScaleModes(fmt.Sprintf("%s[%q]", prefix, name), step)...)
+		errs = append(errs, validateToolSpecSize(prefix, name, step)...)
+		errs = append(errs, validateToolSpecSupports(fmt.Sprintf("%s[%q]", prefix, name), step)...)
+		errs = append(errs, validateToolSpecScaleModes(fmt.Sprintf("%s[%q]", prefix, name), step)...)
 	}
 	return errs
 }
 
-func validateToolRegistry(prefix string, registry map[string]PipelineStep) []error {
+func validateToolRegistry(prefix string, registry map[string]ToolSpec) []error {
 	var errs []error
 	for name, step := range registry {
 		if strings.TrimSpace(name) == "" {
@@ -143,12 +137,12 @@ func validateToolRegistry(prefix string, registry map[string]PipelineStep) []err
 		if len(step.Accepts) == 0 || len(step.Produces) == 0 {
 			errs = append(errs, fmt.Errorf("%s[%q]: tools must define both accepts and produces", prefix, name))
 		}
-		errs = append(errs, validateStageRegistry(prefix, map[string]PipelineStep{name: step})...)
+		errs = append(errs, validateStageRegistry(prefix, map[string]ToolSpec{name: step})...)
 	}
 	return errs
 }
 
-func validatePipelineStepSize(prefix, name string, step PipelineStep) []error {
+func validateToolSpecSize(prefix, name string, step ToolSpec) []error {
 	var errs []error
 	hasSizeConfig := strings.TrimSpace(step.SizeTemplate) != "" || len(step.SizeByMode) > 0
 	hasSizePlaceholder := strings.Contains(step.Command, "{size}")
@@ -180,11 +174,11 @@ func validatePipelineStepSize(prefix, name string, step PipelineStep) []error {
 			errs = append(errs, fmt.Errorf("%s[%q]: size_by_mode contains an empty scale mode key", prefix, name))
 			continue
 		}
-		if normMode != "*" && !validScaleModeValue(normMode) {
+		if !validScaleModeValue(normMode) {
 			errs = append(
 				errs,
 				fmt.Errorf(
-					"%s[%q]: size_by_mode[%q] must be '*' or one of fit, fill, stretch, crop",
+					"%s[%q]: size_by_mode[%q] must be one of fit, fill, stretch, crop",
 					prefix,
 					name,
 					mode,

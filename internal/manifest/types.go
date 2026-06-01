@@ -36,9 +36,9 @@ type Meta struct {
 
 // RenderConfig contains default and named pipeline step definitions.
 type RenderConfig struct {
-	Defaults         RenderDefaults          `yaml:"defaults"`
-	Tools            map[string]PipelineStep `yaml:"tools"`
-	OptimizeByFormat map[string]string       `yaml:"optimize_by_format"`
+	Defaults         RenderDefaults      `yaml:"defaults"`
+	Tools            map[string]ToolSpec `yaml:"tools"`
+	OptimizeByFormat map[string]string   `yaml:"optimize_by_format"`
 }
 
 // RenderDefaults configures global render behavior.
@@ -107,9 +107,10 @@ func (p *ToolPreference) UnmarshalYAML(value *yaml.Node) error {
 	}
 }
 
-// PipelineStep describes one render tool invocation capability.
-// TODO Should PipelineStep have a full Accepts/Produces surely it should be the specific input, and specific output.
-type PipelineStep struct {
+// ToolSpec describes one render tool capability used by graph resolution.
+// Accepts/Produces are capability sets; concrete input/output formats are
+// selected when resolving runtime steps.
+type ToolSpec struct {
 	Tool       string   `yaml:"tool"`
 	Command    string   `yaml:"command"`
 	Accepts    []string `yaml:"accepts"`
@@ -117,11 +118,24 @@ type PipelineStep struct {
 	ScaleModes []string `yaml:"scale_modes"`
 	// SizeTemplate is the default fragment expanded into {size}.
 	SizeTemplate string `yaml:"size_template"`
-	// SizeByMode overrides SizeTemplate by requested scale mode; "*" is a
-	// wildcard fallback used when the requested mode has no direct entry.
+	// SizeByMode overrides SizeTemplate by requested scale mode.
 	SizeByMode map[string]string `yaml:"size_by_mode"`
 	// VersionArgs overrides version probing args for provenance collection.
 	VersionArgs []string `yaml:"version_args"`
+}
+
+// SetsTargetSize reports whether this tool can apply requested output size.
+//
+// A tool is considered size-capable if it declares a size template, has
+// mode-specific size templates, or references size placeholders directly in its
+// command.
+func (t ToolSpec) SetsTargetSize() bool {
+	if strings.TrimSpace(t.SizeTemplate) != "" || len(t.SizeByMode) > 0 {
+		return true
+	}
+	return strings.Contains(t.Command, "{size}") ||
+		strings.Contains(t.Command, "{width}") ||
+		strings.Contains(t.Command, "{height}")
 }
 
 // ValidationConfig controls strictness and filesystem context for validation.

@@ -43,9 +43,6 @@ func stepSizeTemplate(step ResolvedStep, scaleMode string) string {
 	if tmpl, ok := step.SizeByMode[mode]; ok && strings.TrimSpace(tmpl) != "" {
 		return tmpl
 	}
-	if tmpl, ok := step.SizeByMode["*"]; ok && strings.TrimSpace(tmpl) != "" {
-		return tmpl
-	}
 	return step.SizeTemplate
 }
 

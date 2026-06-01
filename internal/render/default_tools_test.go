@@ -89,11 +89,11 @@ assets: []
 	}
 }
 
-func resolveStepForTest(name string, step manifest.PipelineStep, inputExt string, outputExt string) ResolvedStep {
+func resolveStepForTest(name string, step manifest.ToolSpec, inputExt string, outputExt string) ResolvedStep {
 	return resolvedStepFromTool(name, step, inputExt, outputExt)
 }
 
-func sortedToolNames(tools map[string]manifest.PipelineStep) []string {
+func sortedToolNames(tools map[string]manifest.ToolSpec) []string {
 	names := make([]string, 0, len(tools))
 	for name := range tools {
 		names = append(names, name)
@@ -102,24 +102,20 @@ func sortedToolNames(tools map[string]manifest.PipelineStep) []string {
 	return names
 }
 
-func modesForStep(step manifest.PipelineStep) []string {
+func modesForStep(step manifest.ToolSpec) []string {
 	modes := make(map[string]struct{})
 	for _, mode := range step.ScaleModes {
 		norm := strings.ToLower(strings.TrimSpace(mode))
 		switch norm {
 		case "":
 			continue
-		case "*":
-			for _, m := range []string{"fit", "fill", "stretch", "crop"} {
-				modes[m] = struct{}{}
-			}
 		default:
 			modes[norm] = struct{}{}
 		}
 	}
 	for mode := range step.SizeByMode {
 		norm := strings.ToLower(strings.TrimSpace(mode))
-		if norm == "" || norm == "*" {
+		if norm == "" {
 			continue
 		}
 		modes[norm] = struct{}{}
@@ -139,7 +135,7 @@ func modesForStep(step manifest.PipelineStep) []string {
 func firstConcreteExt(exts []string) string {
 	for _, ext := range exts {
 		norm := strings.ToLower(strings.TrimSpace(ext))
-		if norm == "" || norm == "*" {
+		if norm == "" {
 			continue
 		}
 		if strings.HasPrefix(norm, ".") {

@@ -41,12 +41,14 @@ func (w *errWriter) Flush() error {
 	return w.w.Flush()
 }
 
-// RunGen prints a deterministic Makefile fragment for declared outputs.
+// RunGen prints either a deterministic Makefile fragment or DOT graphs for
+// declared outputs.
 func RunGen(args []string, stdout io.Writer, stderr io.Writer) int {
 	fs := flag.NewFlagSet("gen", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
 	manifestPath := fs.String("manifest", "assets.yaml", "Path to assets manifest")
+	dotOutput := fs.Bool("dot", false, "Emit resolver graph as DOT instead of Makefile")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
@@ -61,11 +63,43 @@ func RunGen(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 1
 	}
 
-	if err := renderMakefileFragment(stdout, m); err != nil {
+	if *dotOutput {
+		err = renderDOTGraphs(stdout, m)
+	} else {
+		err = renderMakefileFragment(stdout, m)
+	}
+	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "gen: failed to write output: %v\n", err)
 		return 1
 	}
 	return 0
+}
+
+func renderDOTGraphs(w io.Writer, m *manifest.Manifest) error {
+	rules := collectOutputRules(m)
+	for i, r := range rules {
+		dot, err := render.ResolveGraphDOT(
+			m,
+			r.Source,
+			r.Output,
+			render.ResolveOptions{CheckAvailability: false},
+		)
+		if err != nil {
+			return err
+		}
+		if i > 0 {
+			if _, err := io.WriteString(w, "\n"); err != nil {
+				return err
+			}
+		}
+		if _, err := io.WriteString(w, "// target: "+r.Target+"\n"); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, dot); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func renderMakefileFragment(w io.Writer, m *manifest.Manifest) error {

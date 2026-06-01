@@ -37,6 +37,35 @@ func TestRunGen_GoldenOutput(t *testing.T) {
 	}
 }
 
+func TestRunGen_DotOutput(t *testing.T) {
+	t.Parallel()
+
+	manifestPath := filepath.Join("testdata", "manifest_gen.yaml")
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := commands.RunGen([]string{"--manifest", manifestPath, "--dot"}, &stdout, &stderr)
+	if exitCode != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", exitCode, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+
+	got := stdout.String()
+	if strings.Contains(got, "GENERATED_ASSET_FILES") {
+		t.Fatalf("expected DOT output, got makefile fragment:\n%s", got)
+	}
+	if count := strings.Count(got, "digraph render_graph {"); count != 2 {
+		t.Fatalf("expected one DOT graph per output (2), got %d\n%s", count, got)
+	}
+	for _, want := range []string{"// target: assets/icons/icon_24.png", "// target: assets/images/logo_64.png", "resvg", "oxipng"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected DOT output to contain %q, got:\n%s", want, got)
+		}
+	}
+}
+
 func TestRunGen_LoadError(t *testing.T) {
 	t.Parallel()
 
@@ -77,31 +106,34 @@ func TestRunGen_CommentCommands(t *testing.T) {
 	dir := t.TempDir()
 	manifestPath := filepath.Join(dir, "assets.yaml")
 	manifestContent := `meta:
-  project: "test"
-  render:
-    defaults:
-      tools: ["raster", "opt"]
-    tools:
-      raster:
-        tool: "sh"
-        accepts: [".svg"]
-        produces: [".png"]
-        command: "cp {input} {output}"
-      opt:
-        tool: "sh"
-        accepts: [".png"]
-        produces: [".png"]
-        command: "cp {input} {output}"
+	project: "test"
+	render:
+		defaults:
+			tools: ["raster", "opt"]
+		tools:
+			raster:
+				tool: "sh"
+				accepts: [".svg"]
+				produces: [".png"]
+				size_template: "-resize {width}x{height}"
+				command: "cp {input} {output} {size}"
+			opt:
+				tool: "sh"
+				accepts: [".png"]
+				produces: [".png"]
+				command: "cp {input} {output}"
 assets:
-  - source: "raw/in.svg"
-    outputs:
-      - path: "out/a.png"
-        width: 100
-        height: 100
-        options:
-          scale_mode: "fit"
-          background: "transparent"
+	- source: "raw/in.svg"
+		outputs:
+			- path: "out/a.png"
+				width: 100
+				height: 100
+				options:
+					tools: ["raster"]
+					scale_mode: "fit"
+					background: "transparent"
 `
+	manifestContent = strings.ReplaceAll(manifestContent, "\t", "  ")
 	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0o644); err != nil {
 		t.Fatalf("write manifest: %v", err)
 	}
@@ -132,26 +164,28 @@ func TestRunGen_CommentCommandsSplitChains(t *testing.T) {
 	dir := t.TempDir()
 	manifestPath := filepath.Join(dir, "assets.yaml")
 	manifestContent := `meta:
-  project: "test"
-  render:
-    defaults:
-      tools: ["raster"]
-    tools:
-      raster:
-        tool: "sh"
-        accepts: [".svg"]
-        produces: [".png"]
-        command: "cp {input} {output} && : -resize {width}x{height}"
+	project: "test"
+	render:
+		defaults:
+			tools: ["raster"]
+		tools:
+			raster:
+				tool: "sh"
+				accepts: [".svg"]
+				produces: [".png"]
+				command: "cp {input} {output} && : -resize {width}x{height}"
 assets:
-  - source: "raw/in.svg"
-    outputs:
-      - path: "out/a.png"
-        width: 100
-        height: 100
-        options:
-          scale_mode: "fit"
-          background: "transparent"
+	- source: "raw/in.svg"
+		outputs:
+			- path: "out/a.png"
+				width: 100
+				height: 100
+				options:
+					tools: ["raster"]
+					scale_mode: "fit"
+					background: "transparent"
 `
+	manifestContent = strings.ReplaceAll(manifestContent, "\t", "  ")
 	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0o644); err != nil {
 		t.Fatalf("write manifest: %v", err)
 	}
@@ -181,26 +215,29 @@ func TestRunGen_CommentCommandsSplitPipesAndAnd(t *testing.T) {
 	dir := t.TempDir()
 	manifestPath := filepath.Join(dir, "assets.yaml")
 	manifestContent := `meta:
-  project: "test"
-  render:
-    defaults:
-      tools: ["pipe"]
-    tools:
-      pipe:
-        tool: "sh"
-        accepts: [".svg"]
-        produces: [".png"]
-        command: "cat {input} | cat > {output} && : done"
+	project: "test"
+	render:
+		defaults:
+			tools: ["pipe"]
+		tools:
+			pipe:
+				tool: "sh"
+				accepts: [".svg"]
+				produces: [".png"]
+				size_template: "-resize {width}x{height}"
+				command: "cat {input} | cat > {output} && : done {size}"
 assets:
-  - source: "raw/in.svg"
-    outputs:
-      - path: "out/a.png"
-        width: 100
-        height: 100
-        options:
-          scale_mode: "fit"
-          background: "transparent"
+	- source: "raw/in.svg"
+		outputs:
+			- path: "out/a.png"
+				width: 100
+				height: 100
+				options:
+					tools: ["pipe"]
+					scale_mode: "fit"
+					background: "transparent"
 `
+	manifestContent = strings.ReplaceAll(manifestContent, "\t", "  ")
 	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0o644); err != nil {
 		t.Fatalf("write manifest: %v", err)
 	}
