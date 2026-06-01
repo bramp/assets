@@ -1,1 +1,11 @@
 verify: asset "raw/in.txt" output "out/out.txt" source metadata mismatch
+verify: remediation:
+verify:   make target(s) to rebuild:
+verify:     make out/out.txt
+verify:   or rebuild via assets CLI:
+verify:     assets build --target out/out.txt
+verify:   files expected to be committed:
+verify:     out/out.txt
+verify:     assets.lock
+verify:   mismatch summary:
+verify:     out/out.txt: source metadata mismatch

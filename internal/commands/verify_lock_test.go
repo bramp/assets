@@ -56,6 +56,18 @@ func TestRunVerifyLock_SourceMismatch(t *testing.T) {
 	if stderr.Len() == 0 {
 		t.Fatal("expected verify-lock stderr")
 	}
+	for _, want := range []string{
+		"verify: remediation:",
+		"make out/out.txt",
+		"assets build --target out/out.txt",
+		"files expected to be committed:",
+		"assets.lock",
+		"mismatch summary:",
+	} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Fatalf("expected verify-lock output to contain %q, got: %s", want, stderr.String())
+		}
+	}
 
 	golden, err := os.ReadFile(filepath.Join("testdata", "verify_lock_source_mismatch.golden.txt"))
 	if err != nil {
