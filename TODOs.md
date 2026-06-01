@@ -144,17 +144,17 @@
   - [ ] Support `--write` and `--force` explicitly to avoid accidental overwrites.
   - [ ] Add tests for deterministic generated manifest ordering/content.
 
-- [ ] Add `assets doctor` environment diagnostics command.
-  - [ ] Check required external binaries from effective tool graph.
-  - [ ] Report PATH lookup details and unavailable tools.
-  - [ ] Include tool version/provenance probe output and mismatch reasons.
-  - [ ] Provide actionable install hints per OS (macOS/Linux/Windows).
+- [x] Add `assets doctor` environment diagnostics command.
+  - [x] Check required external binaries from effective tool graph.
+  - [x] Report PATH lookup details and unavailable tools.
+  - [x] Include tool version/provenance probe output and mismatch reasons.
+  - [x] Provide actionable install hints per OS (macOS/Linux/Windows).
 
-- [ ] Improve `assets verify` remediation output.
-  - [ ] Print exact rebuild commands for failing outputs (`make <target>` and `assets build --target <target>`).
-  - [ ] Print files expected to be committed (affected outputs + lockfile).
-  - [ ] Print concise mismatch reason summary per target (source/provenance/hash/size/missing output).
-  - [ ] Keep output deterministic and test with golden fixtures.
+- [x] Improve `assets verify` remediation output.
+  - [x] Print exact rebuild commands for failing outputs (`make <target>` and `assets build --target <target>`).
+  - [x] Print files expected to be committed (affected outputs + lockfile).
+  - [x] Print concise mismatch reason summary per target (source/provenance/hash/size/missing output).
+  - [x] Keep output deterministic and test with golden fixtures.
 
 - [ ] Add a pre-commit hook snippet to README quickstart.
   - [ ] Include copy/paste minimal hook wiring for `assets check`/`assets verify`.
@@ -175,6 +175,6 @@
   - [ ] Target workflow: check + gen + build all + verify.
   - [ ] Ensure deterministic output and clear failure boundaries for CI/local.
 
-- [ ] Fix README quickstart YAML duplicate `outputs` key typo.
-  - [ ] Keep both sample outputs under a single `outputs:` array.
+- [x] Fix README quickstart YAML duplicate `outputs` key typo.
+  - [x] Keep both sample outputs under a single `outputs:` array.
   - [ ] Add test/docs lint check to prevent duplicate-key regressions in snippets.

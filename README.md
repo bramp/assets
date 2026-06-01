@@ -227,6 +227,7 @@ For a full graph-first setup with mixed source formats, fallback tools, scale mo
 - assets check
 - assets gen
 - assets defaults
+- assets doctor
 - assets build --target <path>
 - assets verify
 
@@ -259,6 +260,14 @@ Prints a recommended `meta.render` snippet you can paste into `assets.yaml`.
 
 ```bash
 assets defaults
+```
+
+### assets doctor
+
+Checks render tool availability, version probe health, and lockfile provenance version drift.
+
+```bash
+assets doctor
 ```
 
 ### assets build

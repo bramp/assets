@@ -113,3 +113,26 @@ func TestCommandToolRepository_VersionUsesOverrideWhenUncached(t *testing.T) {
 		t.Fatalf("unexpected override version probe result: %q", got)
 	}
 }
+
+func TestCommandToolRepository_VersionFallsBackToSingleDashVersionByDefault(t *testing.T) {
+	t.Parallel()
+
+	repo := &commandToolRepository{
+		available: map[string]bool{},
+		versions:  map[string]string{},
+		lookPath: func(string) error {
+			return nil
+		},
+		runProbe: func(binary string, args []string) string {
+			if binary == "tool" && len(args) == 1 && args[0] == "-version" {
+				return "tool 1.4.0"
+			}
+			return ""
+		},
+	}
+
+	step := ResolvedStep{Tool: "tool"}
+	if got := repo.Version(step); got != "tool 1.4.0" {
+		t.Fatalf("expected -version fallback result, got %q", got)
+	}
+}

@@ -7,8 +7,6 @@ import (
 	"sync"
 )
 
-const toolVersionArg = "version"
-
 // ToolRepository provides runtime metadata and capability checks for tools.
 //
 // A shared repository instance allows resolve and provenance to reuse the same
@@ -110,7 +108,8 @@ func versionArgCandidates(explicit []string) [][]string {
 	if len(explicit) > 0 {
 		return [][]string{explicit}
 	}
-	return [][]string{{"--version"}, {toolVersionArg}}
+	//nolint:goconst // Keep probe candidates inlined here for local readability.
+	return [][]string{{"--version"}, {"-version"}, {"version"}}
 }
 
 func runVersionProbe(binary string, args []string) string {

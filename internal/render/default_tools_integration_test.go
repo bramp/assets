@@ -95,10 +95,45 @@ assets: []
 	}
 }
 
+func TestBuiltinDefaultTools_VersionProbeEveryAvailableTool(t *testing.T) {
+	testManifestYAML := `meta:
+  project: "default-tool-version-probe-real"
+assets: []
+`
+
+	m, err := manifest.Load(strings.NewReader(testManifestYAML))
+	if err != nil {
+		t.Fatalf("load manifest with built-in defaults: %v", err)
+	}
+
+	missing := missingBinaries(m.Meta.Render.Tools)
+	if len(missing) > 0 {
+		t.Logf("skipping tools with missing binaries: %s", strings.Join(missing, ", "))
+	}
+
+	toolNames := sortedAvailableToolNames(m.Meta.Render.Tools)
+	if len(toolNames) == 0 {
+		t.Skip("no default tools available on PATH")
+	}
+
+	repo := NewToolRepository()
+	for _, toolName := range toolNames {
+		toolName := toolName
+		step := m.Meta.Render.Tools[toolName]
+
+		t.Run(toolName, func(t *testing.T) {
+			resolved := ResolvedStep{Tool: step.Tool, VersionArgs: step.VersionArgs}
+			if got := strings.TrimSpace(repo.Version(resolved)); got == "" {
+				t.Fatalf("expected non-empty version probe result for default tool %q (binary=%q)", toolName, step.Tool)
+			}
+		})
+	}
+}
+
 func missingBinaries(tools map[string]manifest.ToolSpec) []string {
 	uniq := map[string]struct{}{}
 	for _, step := range tools {
-		name := strings.TrimSpace(step.Tool)
+		name := firstCommandToken(step.Tool)
 		if name == "" {
 			continue
 		}
@@ -118,7 +153,7 @@ func missingBinaries(tools map[string]manifest.ToolSpec) []string {
 func sortedAvailableToolNames(tools map[string]manifest.ToolSpec) []string {
 	out := make([]string, 0, len(tools))
 	for name, step := range tools {
-		bin := strings.TrimSpace(step.Tool)
+		bin := firstCommandToken(step.Tool)
 		if bin == "" {
 			continue
 		}

@@ -26,6 +26,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		exitCode = commands.RunGen(args[1:], stdout, stderr)
 	case "defaults":
 		exitCode = commands.RunDefaults(args[1:], stdout, stderr)
+	case "doctor":
+		exitCode = commands.RunDoctor(args[1:], stdout, stderr)
 	case "build":
 		exitCode = commands.RunBuildTarget(args[1:], stderr)
 	case "verify":
@@ -46,6 +48,7 @@ func printUsage(stderr io.Writer) {
 	_, _ = fmt.Fprintln(stderr, "  check       Validate assets manifest and source file presence")
 	_, _ = fmt.Fprintln(stderr, "  gen         Generate deterministic Makefile fragment")
 	_, _ = fmt.Fprintln(stderr, "  defaults    Print a recommended render pipeline config snippet")
+	_, _ = fmt.Fprintln(stderr, "  doctor      Diagnose tool availability and version drift")
 	_, _ = fmt.Fprintln(stderr, "  build       Build a single target output")
 	_, _ = fmt.Fprintln(stderr, "  verify      Verify manifest, outputs, and lockfile alignment")
 	_, _ = fmt.Fprintln(stderr, "")

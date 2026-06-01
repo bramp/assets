@@ -53,3 +53,18 @@ func TestRun_DefaultsRoute(t *testing.T) {
 		t.Fatal("expected defaults output on stdout")
 	}
 }
+
+func TestRun_DoctorRoute(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	exitCode := run([]string{"doctor", "--manifest", "missing.yaml"}, &stdout, &stderr)
+	if exitCode != 1 {
+		t.Fatalf("expected exit 1 for missing manifest, got %d", exitCode)
+	}
+	if !strings.Contains(stderr.String(), "doctor: failed to load manifest") {
+		t.Fatalf("expected doctor load error, got: %q", stderr.String())
+	}
+}
