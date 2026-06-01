@@ -241,15 +241,16 @@ The lockfile also records command provenance for each output, including:
 
 The Go application executable `assets` must implement the following structural interface:
 
-### 4.1 `assets check`
+### 4.1 `assets verify`
 
-Performs quick, non-destructive semantic evaluation of the project posture.
+Performs semantic evaluation and freshness verification in a single command.
 
 * **Actions:**
 1. Validates that `assets.yaml` matches the required structural schema.
-2. In strict mode, ensures required legal metadata fields (`owner`, `copyright`, `license`) are populated for every asset block.
+2. In strict mode (`--strict`), ensures required legal metadata fields (`owner`, `copyright`, `license`) are populated for every asset block.
 3. In loose mode, allows missing legal metadata fields while still validating structure and source presence.
 4. Confirms that all declared `source` files exist on disk.
+5. Compares recorded lockfile metadata/provenance against current source and output state.
 
 
 * **Exit Codes:** `0` on compliance, `1` on failure (emits human-readable errors to `stderr`).
@@ -296,7 +297,7 @@ The developer coordinates execution exclusively through a root-level static `Mak
 
 ```makefile
 # Makefile
-.PHONY: all check-assets clean
+.PHONY: all verify-assets clean
 
 # Dynamic bootstrap hook
 -include .assets.mk
@@ -314,9 +315,9 @@ all: $(GENERATED_ASSET_FILES)
 $(GENERATED_ASSET_FILES):
   @assets build --target $@
 
-check-assets:
-	@assets check
-	@echo "✓ All legal metadata and manifest constraints conform to standard compliance thresholds."
+verify-assets:
+  @assets verify --strict
+  @echo "✓ Manifest and generated asset state are synchronized."
 
 clean:
 	rm -f $(GENERATED_ASSET_FILES) .assets.mk
@@ -329,11 +330,10 @@ clean:
 
 To assert asset verification states inside CI/CD tools (e.g., GitHub Actions) without forcing image-generation libraries into the runner, the pipeline relies on the following decoupled steps:
 
-1. **Metadata Enforcement:** Run `make check-assets` to guarantee legal and file-presence verification rules hold true.
-2. **Freshness State Check:** Run a custom Go validation step (or light shell wrapper) that mimics Make's `-q` capability against the lockfile:
+1. **Validation + Freshness Gate:** Run `assets verify --strict` to guarantee schema/legal metadata checks and lockfile/output freshness in one step:
 ```bash
 # CI verification command executed by the runner
-assets verify
+assets verify --strict
 
 ```
 

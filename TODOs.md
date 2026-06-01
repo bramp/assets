@@ -32,7 +32,7 @@
   - [x] Run make test-ci.
 - [x] Add .github/dependabot.yml with cooldown policy.
 
-## Phase 2: Manifest and Validation (check)
+## Phase 2: Manifest and Validation (verify)
 
 - [x] Define manifest structs matching design schema (meta, assets, outputs, options, format_options).
 - [x] Implement YAML parsing with strict unknown-field detection.
@@ -46,7 +46,7 @@
   - [x] Validate background value (transparent or #RRGGBB).
   - [x] Validate graph tool schema (`tool`, `command`, `accepts`, `produces`, optional `scale_modes`, `size_template`, and `size_by_mode`).
   - [x] Enforce graph-only manifest keys (legacy profile/stage/pipeline controls rejected by strict decode/validation).
-- [x] Implement assets check command:
+- [x] Implement assets verify command validation gate:
   - [x] Human-readable errors to stderr.
   - [x] Exit 0 on success, 1 on failure.
 
@@ -103,7 +103,7 @@
   - [x] gen output.
   - [x] verify mismatch messages.
 - [x] Integration tests:
-  - [x] End-to-end check -> gen -> build -> verify.
+  - [x] End-to-end verify -> gen -> build -> verify.
 - [ ] Run and keep clean:
   - [x] go fmt ./...
   - [x] goimports -w .
@@ -118,7 +118,7 @@
 - [x] Add README with quickstart:
   - [x] Example assets.yaml.
   - [x] Example root Makefile wiring.
-  - [x] Command reference (check, gen, defaults, build, verify).
+  - [x] Command reference (verify, gen, defaults, build).
 - [x] Document failure modes and recovery flow (run make locally, commit updated assets + lockfile).
 - [x] Add release checklist for new image-option semantics.
 - [x] Add CI coverage upload and trend tracking with Codecov (OIDC).
@@ -157,7 +157,7 @@
   - [x] Keep output deterministic and test with golden fixtures.
 
 - [x] Add a pre-commit hook snippet to README quickstart.
-  - [x] Include copy/paste minimal hook wiring for `assets check`/`assets verify`.
+  - [x] Include copy/paste minimal hook wiring for strict `assets verify`.
   - [x] Keep repository-specific hook install section (`make hooks-install`) as canonical path.
 
 - [ ] Add stable install guidance beyond `go install`.
@@ -172,7 +172,7 @@
 
 - [ ] Add a deterministic “sync everything” command/workflow.
   - [ ] Evaluate `assets sync` vs documented Make target wrapper.
-  - [ ] Target workflow: check + gen + build all + verify.
+  - [ ] Target workflow: verify + gen + build all + verify.
   - [ ] Ensure deterministic output and clear failure boundaries for CI/local.
 
 - [x] Fix README quickstart YAML duplicate `outputs` key typo.

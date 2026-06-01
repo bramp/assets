@@ -102,11 +102,6 @@ func TestEndToEnd_CheckGenBuildVerify(t *testing.T) {
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 
-	if exit := commands.RunCheck([]string{"--manifest", manifestPath, "--strict"}, &stderr); exit != 0 {
-		t.Fatalf("check failed: %s", stderr.String())
-	}
-	stderr.Reset()
-
 	if exit := commands.RunGen([]string{"--manifest", manifestPath}, &out, &stderr); exit != 0 {
 		t.Fatalf("gen failed: %s", stderr.String())
 	}
@@ -126,6 +121,28 @@ func TestEndToEnd_CheckGenBuildVerify(t *testing.T) {
 
 	if exit := commands.RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 0 {
 		t.Fatalf("verify-lock failed: %s", stderr.String())
+	}
+	stderr.Reset()
+
+	if exit := commands.RunVerifyLock([]string{"--manifest", manifestPath, "--strict"}, &stderr); exit != 0 {
+		t.Fatalf("verify-lock strict failed: %s", stderr.String())
+	}
+}
+
+func TestRunVerifyLock_StrictValidationFailure(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	manifestPath := writePipelineFixture(t, dir)
+
+	var stderr bytes.Buffer
+	if exit := commands.RunVerifyLock([]string{"--manifest", manifestPath, "--strict"}, &stderr); exit != 1 {
+		t.Fatalf("expected strict validation failure, got %d", exit)
+	}
+	for _, want := range []string{"owner", "copyright", "license"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Fatalf("expected strict validation error to mention %q, got: %s", want, stderr.String())
+		}
 	}
 }
 

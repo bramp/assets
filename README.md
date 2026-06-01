@@ -69,7 +69,7 @@ assets:
 ### 2) Add root Makefile wiring
 
 ```makefile
-.PHONY: all check-assets clean
+.PHONY: all verify-assets clean
 
 # Load generated asset dependency rules if present.
 -include .assets.mk
@@ -86,9 +86,9 @@ all: $(GENERATED_ASSET_FILES)
 $(GENERATED_ASSET_FILES):
   @assets build --target $@
 
-# Validate manifest and metadata policy in strict mode.
-check-assets:
-  @assets check --strict
+# Verify manifest + output/lockfile freshness in strict mode.
+verify-assets:
+  @assets verify --strict
 
 # Remove generated assets and generated Makefile fragment.
 clean:
@@ -98,14 +98,11 @@ clean:
 ### 3) Run workflow locally
 
 ```bash
-# Validate manifest schema and required legal metadata.
-assets check --strict
-
 # Build all declared outputs (Make regenerates .assets.mk as needed).
 make
 
-# Confirm lockfile, outputs, and provenance are in sync.
-assets verify
+# Confirm manifest validity, required legal metadata, and output/lockfile freshness.
+assets verify --strict
 ```
 
 ### 4) Optional: pre-commit hook snippet (example)
@@ -117,8 +114,7 @@ cat > .git/hooks/pre-commit <<'EOF'
 #!/bin/sh
 set -eu
 
-assets check --strict
-assets verify
+assets verify --strict
 EOF
 chmod +x .git/hooks/pre-commit
 ```
@@ -241,23 +237,11 @@ For a full graph-first setup with mixed source formats, fallback tools, scale mo
 
 ## Commands
 
-- assets check
 - assets gen
 - assets defaults
 - assets doctor
 - assets build --target <path>
 - assets verify
-
-### assets check
-
-Validates manifest structure and semantics.
-
-- Use strict mode to enforce legal metadata:
-
-```bash
-# Strictly validate manifest and legal metadata.
-assets check --strict
-```
 
 ### assets gen
 
@@ -298,11 +282,13 @@ assets build --target assets/images/logo_128.png
 
 ### assets verify
 
-Verifies manifest, sources, lockfile, and output size/provenance alignment.
+Verifies manifest validity, sources, lockfile, and output size/provenance alignment.
+
+- Use `--strict` to require legal metadata fields (`owner`, `copyright`, `license`).
 
 ```bash
-# Verify outputs and lockfile provenance are current.
-assets verify
+# Verify metadata policy and that generated outputs/lockfile are current.
+assets verify --strict
 ```
 
 Lockfile shape (per generated output):

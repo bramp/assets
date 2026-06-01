@@ -20,10 +20,9 @@ This example demonstrates a graph-first render configuration with:
 From repository root:
 
 ```bash
-assets check --manifest examples/complex/assets.yaml --strict
 assets gen --manifest examples/complex/assets.yaml > examples/complex/.assets.mk
 assets build --manifest examples/complex/assets.yaml --target examples/complex/out/images/logo_256.png
-assets verify --manifest examples/complex/assets.yaml
+assets verify --manifest examples/complex/assets.yaml --strict
 ```
 
 Or from inside `examples/complex/`:

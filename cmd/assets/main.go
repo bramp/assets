@@ -20,8 +20,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	var exitCode int
 	switch args[0] {
-	case "check":
-		exitCode = commands.RunCheck(args[1:], stderr)
 	case "gen":
 		exitCode = commands.RunGen(args[1:], stdout, stderr)
 	case "defaults":
@@ -45,12 +43,11 @@ func printUsage(stderr io.Writer) {
 	_, _ = fmt.Fprintln(stderr, "Usage: assets <command> [flags]")
 	_, _ = fmt.Fprintln(stderr, "")
 	_, _ = fmt.Fprintln(stderr, "Commands:")
-	_, _ = fmt.Fprintln(stderr, "  check       Validate assets manifest and source file presence")
 	_, _ = fmt.Fprintln(stderr, "  gen         Generate deterministic Makefile fragment")
 	_, _ = fmt.Fprintln(stderr, "  defaults    Print a recommended render pipeline config snippet")
 	_, _ = fmt.Fprintln(stderr, "  doctor      Diagnose tool availability and version drift")
 	_, _ = fmt.Fprintln(stderr, "  build       Build a single target output")
-	_, _ = fmt.Fprintln(stderr, "  verify      Verify manifest, outputs, and lockfile alignment")
+	_, _ = fmt.Fprintln(stderr, "  verify      Verify manifest validity and output/lockfile freshness")
 	_, _ = fmt.Fprintln(stderr, "")
 	_, _ = fmt.Fprintln(stderr, "Use 'assets <command> -h' for command help.")
 }

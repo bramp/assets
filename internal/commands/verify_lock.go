@@ -24,6 +24,7 @@ func RunVerifyLock(args []string, stderr io.Writer) int {
 
 	manifestPath := fs.String("manifest", "assets.yaml", "Path to assets manifest")
 	lockPath := fs.String("lock", "assets.lock", "Path to lockfile")
+	strict := fs.Bool("strict", false, "Require legal metadata fields (owner, copyright, license)")
 
 	if err := fs.Parse(args); err != nil {
 		return 1
@@ -40,6 +41,22 @@ func RunVerifyLock(args []string, stderr io.Writer) int {
 	}
 
 	baseDir := filepath.Dir(*manifestPath)
+	validationErrs := m.Validate(manifest.ValidationConfig{
+		Strict:  *strict,
+		BaseDir: baseDir,
+	})
+	if len(validationErrs) > 0 {
+		errMsgs := make([]string, 0, len(validationErrs))
+		for _, vErr := range validationErrs {
+			errMsgs = append(errMsgs, vErr.Error())
+		}
+		sort.Strings(errMsgs)
+		for _, msg := range errMsgs {
+			_, _ = fmt.Fprintf(stderr, "verify: %s\n", msg)
+		}
+		return 1
+	}
+
 	lf, err := lockfile.Open(filepath.Join(baseDir, *lockPath))
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "verify: failed to load lockfile %q: %v\n", *lockPath, err)

@@ -13,7 +13,7 @@ all: .assets.mk $(GENERATED_ASSET_FILES)
 	$(ASSETS) gen --manifest assets.yaml > .assets.mk
 
 check:
-	$(ASSETS) check --manifest assets.yaml --strict
+	$(ASSETS) verify --manifest assets.yaml --strict
 
 gen:
 	$(ASSETS) gen --manifest assets.yaml > .assets.mk
