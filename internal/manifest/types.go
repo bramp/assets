@@ -17,6 +17,8 @@ var builtinDefaultsYAML string
 const (
 	scaleModeFit          = "fit"
 	backgroundTransparent = "transparent"
+	toolKindTransform     = "transform"
+	toolKindOptimize      = "optimize"
 )
 
 //nolint:gochecknoglobals // Exposed for external validation tooling and docs.
@@ -36,9 +38,8 @@ type Meta struct {
 
 // RenderConfig contains default and named pipeline step definitions.
 type RenderConfig struct {
-	Defaults         RenderDefaults      `yaml:"defaults"`
-	Tools            map[string]ToolSpec `yaml:"tools"`
-	OptimizeByFormat map[string]string   `yaml:"optimize_by_format"`
+	Defaults RenderDefaults      `yaml:"defaults"`
+	Tools    map[string]ToolSpec `yaml:"tools"`
 }
 
 // RenderDefaults configures global render behavior.
@@ -111,6 +112,7 @@ func (p *ToolPreference) UnmarshalYAML(value *yaml.Node) error {
 // Accepts/Produces are capability sets; concrete input/output formats are
 // selected when resolving runtime steps.
 type ToolSpec struct {
+	Kind       string   `yaml:"kind"`
 	Tool       string   `yaml:"tool"`
 	Command    string   `yaml:"command"`
 	Accepts    []string `yaml:"accepts"`
@@ -122,6 +124,15 @@ type ToolSpec struct {
 	SizeByMode map[string]string `yaml:"size_by_mode"`
 	// VersionArgs overrides version probing args for provenance collection.
 	VersionArgs []string `yaml:"version_args"`
+}
+
+// KindOrDefault normalizes tool kind, defaulting to transform when omitted.
+func (t ToolSpec) KindOrDefault() string {
+	norm := strings.ToLower(strings.TrimSpace(t.Kind))
+	if norm == "" {
+		return toolKindTransform
+	}
+	return norm
 }
 
 // SetsTargetSize reports whether this tool can apply requested output size.

@@ -3,13 +3,7 @@
 # Graph tool preferences are order-based tie-breakers for shortest compatible paths.
 render:
   defaults:
-    tools: ["resvg", "rsvg-convert", "inkscape", "vips-transform", "magick-transform", "vips-encode", "magick-encode", "oxipng", "gifsicle", "jpegoptim", "cwebp"]
-  optimize_by_format:
-    .png: "oxipng"
-    .gif: "gifsicle"
-    .jpg: "jpegoptim"
-    .jpeg: "jpegoptim"
-    .webp: "cwebp"
+    tools: ["resvg", "rsvg-convert", "inkscape", "vips", "magick", "oxipng", "gifsicle", "jpegoptim", "cwebp"]
   tools:
     resvg:
       tool: "resvg"
@@ -30,13 +24,12 @@ render:
       produces: [".png"]
       scale_modes: ["fit"]
       command: "inkscape {input} --export-filename={output} --export-width={width} --export-height={height}"
-    vips-transform:
+    vips:
       tool: "vips"
       accepts: [".png", ".jpg", ".jpeg", ".webp", ".gif"]
       produces: [".png", ".jpg", ".jpeg", ".webp", ".gif"]
-      scale_modes: ["fit", "fill", "stretch", "crop"]
-      command: "vips resize {input} {output} {scale}"
-    magick-transform:
+      command: "vips copy {input} {output}"
+    magick:
       tool: "magick"
       # TODO(bramp): Query ImageMagick capabilities (for example via
       # `magick -list format`) so accepts/produces reflect runtime support
@@ -50,32 +43,26 @@ render:
         stretch: "-resize {width}x{height}!"
         crop: "-resize {width}x{height}^ -gravity center -extent {width}x{height}"
       command: "magick {input} {size} {output}"
-    vips-encode:
-      tool: "vips"
-      accepts: [".png", ".jpg", ".jpeg", ".webp"]
-      produces: [".png", ".jpg", ".jpeg", ".webp"]
-      command: "vips copy {input} {output}"
-    magick-encode:
-      tool: "magick"
-      accepts: [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"]
-      produces: [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"]
-      command: "magick {input} {output}"
     oxipng:
+      kind: "optimize"
       tool: "oxipng"
       accepts: [".png"]
       produces: [".png"]
       command: "oxipng -o 3 --strip safe --out {output} {input}"
     gifsicle:
+      kind: "optimize"
       tool: "gifsicle"
       accepts: [".gif"]
       produces: [".gif"]
       command: "gifsicle -O3 {input} -o {output}"
     jpegoptim:
+      kind: "optimize"
       tool: "jpegoptim"
       accepts: [".jpg", ".jpeg"]
       produces: [".jpg", ".jpeg"]
       command: "cp {input} {output} && jpegoptim --strip-all {output}"
     cwebp:
+      kind: "optimize"
       tool: "cwebp"
       accepts: [".webp"]
       produces: [".webp"]

@@ -435,11 +435,9 @@ func TestResolvePipeline_AppendsConfiguredTerminalOptimizer(t *testing.T) {
 		Meta: manifest.Meta{
 			Render: manifest.RenderConfig{
 				Defaults: manifest.RenderDefaults{Tools: manifest.ToolPreference{"resvg"}},
-				OptimizeByFormat: map[string]string{
-					".png": "oxipng",
-				},
 				Tools: map[string]manifest.ToolSpec{
 					"resvg": {
+						Kind:         "transform",
 						Tool:         "resvg",
 						Accepts:      []string{".svg"},
 						Produces:     []string{".png"},
@@ -447,6 +445,7 @@ func TestResolvePipeline_AppendsConfiguredTerminalOptimizer(t *testing.T) {
 						Command:      "resvg {size} {input} {output}",
 					},
 					"oxipng": {
+						Kind:     "optimize",
 						Tool:     "oxipng",
 						Accepts:  []string{".png"},
 						Produces: []string{".png"},
@@ -481,11 +480,9 @@ func TestResolvePipeline_DoesNotDuplicateTerminalOptimizer(t *testing.T) {
 		Meta: manifest.Meta{
 			Render: manifest.RenderConfig{
 				Defaults: manifest.RenderDefaults{Tools: manifest.ToolPreference{"oxipng"}},
-				OptimizeByFormat: map[string]string{
-					".png": "oxipng",
-				},
 				Tools: map[string]manifest.ToolSpec{
 					"oxipng": {
+						Kind:     "optimize",
 						Tool:     "oxipng",
 						Accepts:  []string{".png"},
 						Produces: []string{".png"},
@@ -679,17 +676,16 @@ func TestResolvePipeline_OptimizerIsTerminalAfterSizing(t *testing.T) {
 				Defaults: manifest.RenderDefaults{
 					Tools: manifest.ToolPreference{"oxipng", "svg2png", "png-resize"},
 				},
-				OptimizeByFormat: map[string]string{
-					".png": "oxipng",
-				},
 				Tools: map[string]manifest.ToolSpec{
 					"svg2png": {
+						Kind:     "transform",
 						Tool:     "svg2png",
 						Accepts:  []string{".svg"},
 						Produces: []string{".png"},
 						Command:  "svg2png {input} {output}",
 					},
 					"png-resize": {
+						Kind:         "transform",
 						Tool:         "png-resize",
 						Accepts:      []string{".png"},
 						Produces:     []string{".png"},
@@ -697,6 +693,7 @@ func TestResolvePipeline_OptimizerIsTerminalAfterSizing(t *testing.T) {
 						Command:      "png-resize {input} {size} {output}",
 					},
 					"oxipng": {
+						Kind:     "optimize",
 						Tool:     "oxipng",
 						Accepts:  []string{".png"},
 						Produces: []string{".png"},
@@ -733,11 +730,9 @@ func TestResolvePipeline_OptimizerTieBreakPrefersDefaultToolOrder(t *testing.T) 
 				Defaults: manifest.RenderDefaults{
 					Tools: manifest.ToolPreference{"resvg", "inkscape", "oxipng"},
 				},
-				OptimizeByFormat: map[string]string{
-					".png": "oxipng",
-				},
 				Tools: map[string]manifest.ToolSpec{
 					"resvg": {
+						Kind:         "transform",
 						Tool:         "resvg",
 						Accepts:      []string{".svg"},
 						Produces:     []string{".png"},
@@ -745,12 +740,14 @@ func TestResolvePipeline_OptimizerTieBreakPrefersDefaultToolOrder(t *testing.T) 
 						Command:      "resvg {size} {input} {output}",
 					},
 					"inkscape": {
+						Kind:     "transform",
 						Tool:     "inkscape",
 						Accepts:  []string{".svg"},
 						Produces: []string{".png"},
 						Command:  "inkscape {input} --export-filename={output} --export-width={width} --export-height={height}",
 					},
 					"oxipng": {
+						Kind:     "optimize",
 						Tool:     "oxipng",
 						Accepts:  []string{".png"},
 						Produces: []string{".png"},
@@ -788,11 +785,9 @@ func TestResolveGraphDOT_ContainsNodesAndEdges(t *testing.T) {
 		Meta: manifest.Meta{
 			Render: manifest.RenderConfig{
 				Defaults: manifest.RenderDefaults{Tools: manifest.ToolPreference{"resvg", "eps2png", "oxipng"}},
-				OptimizeByFormat: map[string]string{
-					".png": "oxipng",
-				},
 				Tools: map[string]manifest.ToolSpec{
 					"resvg": {
+						Kind:         "transform",
 						Tool:         "resvg",
 						Accepts:      []string{".svg"},
 						Produces:     []string{".png"},
@@ -800,6 +795,7 @@ func TestResolveGraphDOT_ContainsNodesAndEdges(t *testing.T) {
 						Command:      "resvg {size} {input} {output}",
 					},
 					"eps2png": {
+						Kind:         "transform",
 						Tool:         "eps2png",
 						Accepts:      []string{".eps"},
 						Produces:     []string{".png"},
@@ -807,6 +803,7 @@ func TestResolveGraphDOT_ContainsNodesAndEdges(t *testing.T) {
 						Command:      "eps2png {size} {input} {output}",
 					},
 					"oxipng": {
+						Kind:     "optimize",
 						Tool:     "oxipng",
 						Accepts:  []string{".png"},
 						Produces: []string{".png"},

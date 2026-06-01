@@ -9,6 +9,8 @@ import (
 	"github.com/bramp/assets/internal/manifest"
 )
 
+const toolKindOptimize = "optimize"
+
 // supportsScaleMode reports whether a step can satisfy the requested mode.
 // Empty mode or empty capability list is treated as permissive for backward
 // compatibility with tools that do not model mode constraints.
@@ -66,7 +68,6 @@ type graphResolver struct {
 	requireSized      bool
 	checkAvailability bool
 	toolRepo          ToolRepository
-	terminalOptimizer *candidateTool
 	requireOptimized  bool
 	initErr           error
 	maxDepth          int
@@ -74,7 +75,6 @@ type graphResolver struct {
 
 func newGraphResolver(
 	tools map[string]manifest.ToolSpec,
-	optimizeByFormat map[string]string,
 	preferenceRank map[string]int,
 	sourceExt string,
 	outputExt string,
@@ -86,13 +86,6 @@ func newGraphResolver(
 	if toolRepo == nil {
 		toolRepo = NewToolRepository()
 	}
-	terminalOptimizer, requireOptimized, err := resolveTerminalOptimizer(
-		tools,
-		optimizeByFormat,
-		outputExt,
-		checkAvailability,
-		toolRepo,
-	)
 	r := &graphResolver{
 		tools:             tools,
 		preferenceRank:    preferenceRank,
@@ -102,9 +95,7 @@ func newGraphResolver(
 		sizeRequested:     requireSized,
 		checkAvailability: checkAvailability,
 		toolRepo:          toolRepo,
-		terminalOptimizer: terminalOptimizer,
-		requireOptimized:  requireOptimized,
-		initErr:           err,
+		requireOptimized:  hasCompatibleOptimizer(tools, outputExt, checkAvailability, toolRepo),
 		maxDepth:          4,
 	}
 	if r.sizeRequested {
@@ -150,6 +141,20 @@ func (r *graphResolver) neighborEdges(fromNode graphNode) []graphEdge {
 		if !matchesFormatList(candidate.Tool.Accepts, from) {
 			continue
 		}
+
+		if candidate.Tool.KindOrDefault() == toolKindOptimize {
+			if from != r.outputExt || !matchesFormatList(candidate.Tool.Produces, from) {
+				continue
+			}
+			optNode := graphNode{format: from, sized: fromNode.sized, optimized: true}
+			edges = append(edges, graphEdge{
+				From: fromNode,
+				To:   optNode,
+				Step: resolvedStepFromTool(candidate.Name, candidate.Tool, from, from),
+			})
+			continue
+		}
+
 		setsSize := candidate.Tool.SetsTargetSize()
 
 		// This limits us to direct transitions from source to output format, but that is sufficient to
@@ -168,16 +173,6 @@ func (r *graphResolver) neighborEdges(fromNode graphNode) []graphEdge {
 		}
 	}
 
-	if r.terminalOptimizer != nil && from == r.outputExt {
-		// Optimization is modeled as a same-format terminal transition.
-		optNode := graphNode{format: from, sized: fromNode.sized, optimized: true}
-		edges = append(edges, graphEdge{
-			From: fromNode,
-			To:   optNode,
-			Step: resolvedStepFromTool(r.terminalOptimizer.Name, r.terminalOptimizer.Tool, from, from),
-		})
-	}
-
 	return edges
 }
 
@@ -186,8 +181,8 @@ type candidateTool struct {
 	Tool manifest.ToolSpec
 }
 
-// candidateTools returns a deterministic, filtered set of non-optimizer tools
-// eligible for normal graph expansion.
+// candidateTools returns a deterministic, filtered set of tools eligible for
+// graph expansion.
 func (r *graphResolver) candidateTools() []candidateTool {
 	keys := make([]string, 0, len(r.tools))
 	for name := range r.tools {
@@ -200,9 +195,6 @@ func (r *graphResolver) candidateTools() []candidateTool {
 		tool := r.tools[name]
 		normName := strings.ToLower(strings.TrimSpace(name))
 		if normName == "" || normName == "none" || normName == "off" {
-			continue
-		}
-		if r.terminalOptimizer != nil && normName == r.terminalOptimizer.Name {
 			continue
 		}
 		if !supportsScaleMode(tool.ScaleModes, r.scaleMode) {
@@ -296,7 +288,6 @@ func (r *graphResolver) chooseBestPath(paths [][]ResolvedStep) []ResolvedStep {
 // pipelines while still allowing preference-based tie-breaking.
 func resolveGraphPath(
 	tools map[string]manifest.ToolSpec,
-	optimizeByFormat map[string]string,
 	preferenceRank map[string]int,
 	sourceExt string,
 	outputExt string,
@@ -310,7 +301,6 @@ func resolveGraphPath(
 	}
 	resolver := newGraphResolver(
 		tools,
-		optimizeByFormat,
 		preferenceRank,
 		sourceExt,
 		outputExt,
@@ -322,58 +312,29 @@ func resolveGraphPath(
 	return resolver.resolve()
 }
 
-func resolveTerminalOptimizer(
+func hasCompatibleOptimizer(
 	tools map[string]manifest.ToolSpec,
-	optimizeByFormat map[string]string,
 	outputExt string,
 	checkAvailability bool,
 	toolRepo ToolRepository,
-) (*candidateTool, bool, error) {
+) bool {
 	normExt := strings.ToLower(strings.TrimSpace(outputExt))
-	if normExt == "" || len(optimizeByFormat) == 0 {
-		return nil, false, nil
+	if normExt == "" {
+		return false
 	}
-
-	optimizeStepName, ok := optimizeByFormat[normExt]
-	if !ok {
-		return nil, false, nil
-	}
-	normOptimizeStepName := strings.ToLower(strings.TrimSpace(optimizeStepName))
-	if normOptimizeStepName == "" {
-		return nil, false, nil
-	}
-
-	optimizeDef, ok := findToolSpec(tools, normOptimizeStepName)
-	if !ok {
-		return nil, false, fmt.Errorf(
-			"optimizer %q configured for %q not found in render tools",
-			normOptimizeStepName,
-			normExt,
-		)
-	}
-	if !matchesFormatList(optimizeDef.Accepts, normExt) || !matchesFormatList(optimizeDef.Produces, normExt) {
-		return nil, false, fmt.Errorf(
-			"optimizer %q configured for %q must accept and produce %q",
-			normOptimizeStepName,
-			normExt,
-			normExt,
-		)
-	}
-	if checkAvailability && !toolRepo.Available(optimizeDef.Tool) {
-		return nil, false, fmt.Errorf("optimizer tool %q for %q is not available", optimizeDef.Tool, normExt)
-	}
-
-	return &candidateTool{Name: normOptimizeStepName, Tool: optimizeDef}, true, nil
-}
-
-func findToolSpec(tools map[string]manifest.ToolSpec, toolName string) (manifest.ToolSpec, bool) {
-	normName := strings.ToLower(strings.TrimSpace(toolName))
-	for name, spec := range tools {
-		if strings.ToLower(strings.TrimSpace(name)) == normName {
-			return spec, true
+	for _, step := range tools {
+		if step.KindOrDefault() != toolKindOptimize {
+			continue
 		}
+		if !matchesFormatList(step.Accepts, normExt) || !matchesFormatList(step.Produces, normExt) {
+			continue
+		}
+		if checkAvailability && !toolRepo.Available(step.Tool) {
+			continue
+		}
+		return true
 	}
-	return manifest.ToolSpec{}, false
+	return false
 }
 
 func resolvedStepFromTool(

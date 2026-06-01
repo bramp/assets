@@ -12,7 +12,10 @@ func expand(s string, ctx BuildContext) string {
 // expandStepCommand expands a pipeline step using the same placeholder rules
 // as execution, including tool-specific {size} expansion.
 func expandStepCommand(step ResolvedStep, ctx BuildContext) string {
-	size := expandTemplate(stepSizeTemplate(step, ctx.ScaleMode), ctx)
+	size := ""
+	if ctx.Width > 0 && ctx.Height > 0 {
+		size = expandTemplate(stepSizeTemplate(step, ctx.ScaleMode), ctx)
+	}
 	command := strings.ReplaceAll(step.Command, "{size}", size)
 	return expandTemplate(command, ctx)
 }

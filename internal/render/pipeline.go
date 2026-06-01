@@ -91,7 +91,6 @@ func ResolvePipelineWithOptions(
 
 	steps, err := resolveGraphPath(
 		m.Meta.Render.Tools,
-		m.Meta.Render.OptimizeByFormat,
 		preferenceRank,
 		sourceExt,
 		outputExt,
@@ -130,7 +129,6 @@ func ResolveGraphDOT(
 	sizeRequested := o.Width > 0 && o.Height > 0
 	resolver := newGraphResolver(
 		m.Meta.Render.Tools,
-		m.Meta.Render.OptimizeByFormat,
 		preferenceRank,
 		sourceExt,
 		outputExt,

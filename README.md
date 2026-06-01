@@ -118,8 +118,9 @@ Graph tool selection is composable:
 - Global defaults: set ordered tool preference list in `meta.render.defaults.tools`.
 - Per output: override with `outputs[].options.tools` as either a string or list.
 - Tool compatibility metadata: set `accepts` and `produces` per tool entry so the resolver can find the shortest valid conversion path.
+- Tool role metadata: set `kind: "optimize"` for optimizer tools; omitted `kind` defaults to `transform`.
 - Size capability metadata: use `{size}` in `command`, set `size_template` for the default size fragment, and optionally set `size_by_mode` for per-`scale_mode` overrides.
-- Size fragment resolution order: `size_by_mode[<requested scale_mode>]`, then `size_by_mode["*"]`, then `size_template`.
+- Size fragment resolution order: `size_by_mode[<requested scale_mode>]`, then `size_template`.
 - Mode capability metadata: set `scale_modes` per tool entry so the resolver can require aspect-ratio behavior compatibility.
 - Selection behavior: shortest valid path wins; preference order breaks ties.
 
@@ -135,7 +136,7 @@ meta:
   project: "My App"
   render:
     defaults:
-      tools: ["resvg", "rsvg-convert", "inkscape", "vips-transform", "magick-transform", "vips-encode", "magick-encode", "oxipng", "gifsicle", "jpegoptim", "cwebp"]
+      tools: ["resvg", "rsvg-convert", "inkscape", "vips", "magick", "oxipng", "gifsicle", "jpegoptim", "cwebp"]
     tools:
       resvg:
         tool: "resvg"
@@ -156,16 +157,15 @@ meta:
         produces: [".png"]
         scale_modes: ["fit"]
         command: "inkscape {input} --export-filename={output} --export-width={width} --export-height={height}"
-      vips-transform:
+      vips:
         tool: "vips"
         accepts: [".png", ".jpg", ".jpeg", ".webp", ".gif"]
         produces: [".png", ".jpg", ".jpeg", ".webp", ".gif"]
-        scale_modes: ["fit", "fill", "stretch", "crop"]
-        command: "vips resize {input} {output} {scale}"
-      magick-transform:
+        command: "vips copy {input} {output}"
+      magick:
         tool: "magick"
-        accepts: ["*"]
-        produces: ["*"]
+        accepts: [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"]
+        produces: [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"]
         scale_modes: ["fit", "fill", "stretch", "crop"]
         size_template: "-resize {width}x{height} -background {background} -gravity center -extent {width}x{height}"
         size_by_mode:
@@ -173,32 +173,26 @@ meta:
           stretch: "-resize {width}x{height}!"
           crop: "-resize {width}x{height}^ -gravity center -extent {width}x{height}"
         command: "magick {input} {size} {output}"
-      vips-encode:
-        tool: "vips"
-        accepts: [".png", ".jpg", ".jpeg", ".webp"]
-        produces: [".png", ".jpg", ".jpeg", ".webp"]
-        command: "vips copy {input} {output}"
-      magick-encode:
-        tool: "magick"
-        accepts: ["*"]
-        produces: ["*"]
-        command: "magick {input} {output}"
       oxipng:
+        kind: "optimize"
         tool: "oxipng"
         accepts: [".png"]
         produces: [".png"]
         command: "oxipng -o 3 --strip safe {output}"
       gifsicle:
+        kind: "optimize"
         tool: "gifsicle"
         accepts: [".gif"]
         produces: [".gif"]
         command: "gifsicle -O3 -b {output}"
       jpegoptim:
+        kind: "optimize"
         tool: "jpegoptim"
         accepts: [".jpg", ".jpeg"]
         produces: [".jpg", ".jpeg"]
         command: "jpegoptim --strip-all {output}"
       cwebp:
+        kind: "optimize"
         tool: "cwebp"
         accepts: [".webp"]
         produces: [".webp"]
@@ -211,7 +205,7 @@ assets:
         width: 128
         height: 128
         options:
-          tools: ["inkscape", "resvg", "rsvg-convert", "magick-transform", "magick-encode"]
+          tools: ["inkscape", "resvg", "rsvg-convert", "magick"]
           scale_mode: "fit"
           background: "transparent"
 ```
@@ -220,7 +214,7 @@ Example behavior:
 
 - `assets/images/logo.png` resolves the shortest valid graph path from source format to `.png`, then uses `defaults.tools` ordering to break ties.
 - `assets/images/anim.gif` resolves similarly for `.gif` and can choose a different chain based on tool capabilities.
-- Per-output override still wins (for example `options.tools: ["resvg", "magick-encode"]`).
+- Per-output override still wins (for example `options.tools: ["resvg", "magick"]`).
 
 ## Complex Example
 

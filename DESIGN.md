@@ -55,7 +55,7 @@ meta:
   render:
     defaults:
       # Ordered preferences used to break shortest-path ties.
-      tools: ["resvg", "rsvg-convert", "inkscape", "vips-transform", "magick-transform", "vips-encode", "magick-encode", "oxipng", "gifsicle", "jpegoptim", "cwebp"]
+      tools: ["resvg", "rsvg-convert", "inkscape", "vips", "magick", "oxipng", "gifsicle", "jpegoptim", "cwebp"]
       strict_renderer_versions: true
     tools:
       resvg:
@@ -77,16 +77,15 @@ meta:
         produces: [".png"]
         scale_modes: ["fit"]
         command: "inkscape {input} --export-filename={output} --export-width={width} --export-height={height}"
-      vips-transform:
+      vips:
         tool: "vips"
         accepts: [".png", ".jpg", ".jpeg", ".webp", ".gif"]
         produces: [".png", ".jpg", ".jpeg", ".webp", ".gif"]
-        scale_modes: ["fit", "fill", "stretch", "crop"]
-        command: "vips resize {input} {output} {scale}"
-      magick-transform:
+        command: "vips copy {input} {output}"
+      magick:
         tool: "magick"
-        accepts: ["*"]
-        produces: ["*"]
+        accepts: [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"]
+        produces: [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"]
         scale_modes: ["fit", "fill", "stretch", "crop"]
         size_template: "-resize {width}x{height} -background {background} -gravity center -extent {width}x{height}"
         size_by_mode:
@@ -94,27 +93,20 @@ meta:
           stretch: "-resize {width}x{height}!"
           crop: "-resize {width}x{height}^ -gravity center -extent {width}x{height}"
         command: "magick {input} {size} {output}"
-      vips-encode:
-        tool: "vips"
-        accepts: [".png", ".jpg", ".jpeg", ".webp"]
-        produces: [".png", ".jpg", ".jpeg", ".webp"]
-        command: "vips copy {input} {output}"
-      magick-encode:
-        tool: "magick"
-        accepts: ["*"]
-        produces: ["*"]
-        command: "magick {input} {output}"
       oxipng:
+        kind: "optimize"
         tool: "oxipng"
         accepts: [".png"]
         produces: [".png"]
         command: "oxipng -o 4 --strip safe {output}"
       gifsicle:
+        kind: "optimize"
         tool: "gifsicle"
         accepts: [".gif"]
         produces: [".gif"]
         command: "gifsicle -O3 -b {output}"
       jpegoptim:
+        kind: "optimize"
         tool: "jpegoptim"
         accepts: [".jpg", ".jpeg"]
         produces: [".jpg", ".jpeg"]
@@ -131,7 +123,7 @@ assets:
         height: 512
         options:
           # Per-output override may be scalar or list.
-          tools: ["inkscape", "resvg", "rsvg-convert", "magick-transform", "magick-encode"]
+          tools: ["inkscape", "resvg", "rsvg-convert", "magick"]
           scale_mode: "fit"
           background: "transparent"
           format_options:
@@ -171,7 +163,7 @@ Operation model:
 1. Tool catalog entries (`meta.render.tools`) define graph edges.
 2. Each candidate declares `tool`, `command`, `accepts`, `produces`, and optional `scale_modes` constraints.
 3. Rasterize candidates may declare `size_template` as a command-fragment template (for example `"--width {width} --height {height}"`) and optionally `size_by_mode` for mode-specific fragments.
-4. Size fragment resolution order is deterministic: `size_by_mode[requested_scale_mode]`, then `size_by_mode["*"]`, then `size_template`.
+4. Size fragment resolution order is deterministic: `size_by_mode[requested_scale_mode]`, then `size_template`.
 5. Commands may combine concerns (for example rasterize plus resize, or rasterize directly to final output format).
 
 Planner policy (minimal and deterministic):

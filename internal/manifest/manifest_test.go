@@ -248,7 +248,7 @@ assets:
 	}
 }
 
-func TestValidate_OptimizeByFormat(t *testing.T) {
+func TestValidate_ToolKind(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -265,18 +265,29 @@ func TestValidate_OptimizeByFormat(t *testing.T) {
 		Meta: Meta{
 			Project: "test",
 			Render: RenderConfig{
-				Defaults: RenderDefaults{Tools: []string{"oxipng"}},
+				Defaults: RenderDefaults{Tools: []string{"oxipng", "inkscape", "badkind"}},
 				Tools: map[string]ToolSpec{
 					"oxipng": {
+						Kind:     "optimize",
 						Tool:     "oxipng",
 						Command:  "oxipng -o 3 --strip safe {output}",
 						Accepts:  []string{".png"},
 						Produces: []string{".png"},
 					},
-				},
-				OptimizeByFormat: map[string]string{
-					"png":  "oxipng",
-					".gif": "missing",
+					"inkscape": {
+						Kind:     "transform",
+						Tool:     "inkscape",
+						Command:  "inkscape {input} --export-filename={output}",
+						Accepts:  []string{".svg"},
+						Produces: []string{".png"},
+					},
+					"badkind": {
+						Kind:     "invalid",
+						Tool:     "whatever",
+						Command:  "whatever {input} {output}",
+						Accepts:  []string{".txt"},
+						Produces: []string{".txt"},
+					},
 				},
 			},
 		},
@@ -296,8 +307,7 @@ func TestValidate_OptimizeByFormat(t *testing.T) {
 
 	errStr := joinErrs(m.Validate(ValidationConfig{Strict: false, BaseDir: dir}))
 	for _, want := range []string{
-		"meta.render.optimize_by_format extension \"png\" must start with '.'",
-		"meta.render.optimize_by_format[\".gif\"] references unknown optimize tool \"missing\"",
+		"meta.render.tools[\"badkind\"]: kind \"invalid\" must be one of \"transform\" or \"optimize\"",
 	} {
 		if !strings.Contains(errStr, want) {
 			t.Fatalf("expected error containing %q, got: %s", want, errStr)

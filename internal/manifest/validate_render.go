@@ -1,7 +1,6 @@
 package manifest
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -11,28 +10,6 @@ func validateRenderConfig(cfg RenderConfig) []error {
 
 	errs = append(errs, validateToolRegistry("meta.render.tools", cfg.Tools)...)
 	errs = append(errs, validateStageOrder("meta.render.defaults.tools", cfg.Defaults.Tools, cfg.Tools)...)
-
-	for ext, tool := range cfg.OptimizeByFormat {
-		normExt := strings.TrimSpace(ext)
-		if normExt == "" {
-			errs = append(errs, errors.New("meta.render.optimize_by_format contains an empty extension key"))
-			continue
-		}
-		if !strings.HasPrefix(normExt, ".") {
-			errs = append(errs, fmt.Errorf("meta.render.optimize_by_format extension %q must start with '.'", ext))
-		}
-		normTool := strings.TrimSpace(tool)
-		if normTool == "" {
-			errs = append(errs, fmt.Errorf("meta.render.optimize_by_format[%q] must name an optimize tool", ext))
-			continue
-		}
-		if _, ok := cfg.Tools[normTool]; !ok {
-			errs = append(
-				errs,
-				fmt.Errorf("meta.render.optimize_by_format[%q] references unknown optimize tool %q", ext, normTool),
-			)
-		}
-	}
 
 	return errs
 }
@@ -74,6 +51,15 @@ func validSupportsFormat(v string) bool {
 
 func validScaleModeValue(v string) bool {
 	return validScaleMode(v)
+}
+
+func validToolKind(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "", toolKindTransform, toolKindOptimize:
+		return true
+	default:
+		return false
+	}
 }
 
 func validateToolSpecSupports(prefix string, step ToolSpec) []error {
@@ -119,6 +105,19 @@ func validateStageRegistry(prefix string, registry map[string]ToolSpec) []error 
 		}
 		if strings.TrimSpace(step.Command) == "" {
 			errs = append(errs, fmt.Errorf("%s[%q]: command is required", prefix, name))
+		}
+		if !validToolKind(step.Kind) {
+			errs = append(
+				errs,
+				fmt.Errorf(
+					"%s[%q]: kind %q must be one of %q or %q",
+					prefix,
+					name,
+					step.Kind,
+					toolKindTransform,
+					toolKindOptimize,
+				),
+			)
 		}
 		errs = append(errs, validateToolSpecSize(prefix, name, step)...)
 		errs = append(errs, validateToolSpecSupports(fmt.Sprintf("%s[%q]", prefix, name), step)...)
