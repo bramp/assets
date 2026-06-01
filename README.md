@@ -61,7 +61,6 @@ assets:
         options:
           scale_mode: "fit"
           background: "transparent"
-    outputs:
       - path: "assets/images/logo_256.jpg"
         width: 256
         height: 256
