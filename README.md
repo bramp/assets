@@ -108,6 +108,23 @@ make
 assets verify
 ```
 
+### 4) Optional: pre-commit hook snippet (example)
+
+If you want a lightweight local guard before each commit, this example runs manifest validation and lockfile/output verification.
+
+```bash
+cat > .git/hooks/pre-commit <<'EOF'
+#!/bin/sh
+set -eu
+
+assets check --strict
+assets verify
+EOF
+chmod +x .git/hooks/pre-commit
+```
+
+For this repository, keep `make hooks-install` as the canonical setup path (it installs the shared project hook configuration).
+
 ## Customize Pipeline
 
 When defaults are not enough, define stage catalogs and pick tools independently.

@@ -156,9 +156,9 @@
   - [x] Print concise mismatch reason summary per target (source/provenance/hash/size/missing output).
   - [x] Keep output deterministic and test with golden fixtures.
 
-- [ ] Add a pre-commit hook snippet to README quickstart.
-  - [ ] Include copy/paste minimal hook wiring for `assets check`/`assets verify`.
-  - [ ] Keep repository-specific hook install section (`make hooks-install`) as canonical path.
+- [x] Add a pre-commit hook snippet to README quickstart.
+  - [x] Include copy/paste minimal hook wiring for `assets check`/`assets verify`.
+  - [x] Keep repository-specific hook install section (`make hooks-install`) as canonical path.
 
 - [ ] Add stable install guidance beyond `go install`.
   - [ ] Document release binary download flow once artifacts are published.
