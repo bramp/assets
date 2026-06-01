@@ -135,3 +135,46 @@
   - [ ] Keep optimizer nodes single-purpose (for example `jpegoptim` only runs optimizer flags).
   - [ ] Ensure graph resolution selects the copy node only when required by an in-place optimizer.
   - [ ] Update defaults and tests so planned/executed commands remain one command per step for clearer logs and failure attribution.
+
+## Phase 10: UX and Onboarding Backlog
+
+- [ ] Add `assets init` scaffolding command.
+  - [ ] Detect common source layouts (for example `artwork/logo.svg`) and suggest output presets.
+  - [ ] Start with a safe mode that prints proposed YAML before writing.
+  - [ ] Support `--write` and `--force` explicitly to avoid accidental overwrites.
+  - [ ] Add tests for deterministic generated manifest ordering/content.
+
+- [ ] Add `assets doctor` environment diagnostics command.
+  - [ ] Check required external binaries from effective tool graph.
+  - [ ] Report PATH lookup details and unavailable tools.
+  - [ ] Include tool version/provenance probe output and mismatch reasons.
+  - [ ] Provide actionable install hints per OS (macOS/Linux/Windows).
+
+- [ ] Improve `assets verify` remediation output.
+  - [ ] Print exact rebuild commands for failing outputs (`make <target>` and `assets build --target <target>`).
+  - [ ] Print files expected to be committed (affected outputs + lockfile).
+  - [ ] Print concise mismatch reason summary per target (source/provenance/hash/size/missing output).
+  - [ ] Keep output deterministic and test with golden fixtures.
+
+- [ ] Add a pre-commit hook snippet to README quickstart.
+  - [ ] Include copy/paste minimal hook wiring for `assets check`/`assets verify`.
+  - [ ] Keep repository-specific hook install section (`make hooks-install`) as canonical path.
+
+- [ ] Add stable install guidance beyond `go install`.
+  - [ ] Document release binary download flow once artifacts are published.
+  - [ ] Add Homebrew tap instructions when tap/release automation exists.
+  - [ ] Keep fallback `go install` path for contributors.
+
+- [ ] Add first-class docs for copy-only outputs.
+  - [ ] Document a minimal copy-only tool pattern for no-transform outputs.
+  - [ ] Show example asset outputs that intentionally bypass resizing/optimization.
+  - [ ] Clarify interaction with `kind: optimize` terminal steps.
+
+- [ ] Add a deterministic “sync everything” command/workflow.
+  - [ ] Evaluate `assets sync` vs documented Make target wrapper.
+  - [ ] Target workflow: check + gen + build all + verify.
+  - [ ] Ensure deterministic output and clear failure boundaries for CI/local.
+
+- [ ] Fix README quickstart YAML duplicate `outputs` key typo.
+  - [ ] Keep both sample outputs under a single `outputs:` array.
+  - [ ] Add test/docs lint check to prevent duplicate-key regressions in snippets.
