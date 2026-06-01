@@ -44,20 +44,6 @@ type pathSearchResult struct {
 	graph map[graphNode][]graphEdge
 }
 
-const (
-	extSVG  = ".svg"
-	extEPS  = ".eps"
-	extPDF  = ".pdf"
-	extPNG  = ".png"
-	extJPG  = ".jpg"
-	extJPEG = ".jpeg"
-	extWEBP = ".webp"
-	extGIF  = ".gif"
-	extBMP  = ".bmp"
-	extTIF  = ".tif"
-	extTIFF = ".tiff"
-)
-
 type graphNode struct {
 	// format is the file extension represented by this state (for example .png).
 	format string
@@ -69,11 +55,14 @@ type graphNode struct {
 
 // graphResolver encapsulates state and helpers for bounded graph search.
 type graphResolver struct {
-	tools             map[string]manifest.ToolSpec
-	preferenceRank    map[string]int
-	sourceExt         string
-	outputExt         string
-	scaleMode         string
+	tools          map[string]manifest.ToolSpec
+	preferenceRank map[string]int
+	sourceExt      string
+	outputExt      string
+	scaleMode      string
+	// sizeRequested captures caller intent (width/height set); whether it
+	// becomes a hard goal is decided from reachable tool capabilities.
+	sizeRequested     bool
 	requireSized      bool
 	checkAvailability bool
 	toolRepo          ToolRepository
@@ -104,13 +93,13 @@ func newGraphResolver(
 		checkAvailability,
 		toolRepo,
 	)
-	return &graphResolver{
+	r := &graphResolver{
 		tools:             tools,
 		preferenceRank:    preferenceRank,
 		sourceExt:         sourceExt,
 		outputExt:         outputExt,
 		scaleMode:         scaleMode,
-		requireSized:      requireSized,
+		sizeRequested:     requireSized,
 		checkAvailability: checkAvailability,
 		toolRepo:          toolRepo,
 		terminalOptimizer: terminalOptimizer,
@@ -118,6 +107,11 @@ func newGraphResolver(
 		initErr:           err,
 		maxDepth:          4,
 	}
+	if r.sizeRequested {
+		r.requireSized = r.canSatisfySizedGoal()
+	}
+
+	return r
 }
 
 func (r *graphResolver) resolve() ([]ResolvedStep, error) {
@@ -133,6 +127,14 @@ func (r *graphResolver) resolve() ([]ResolvedStep, error) {
 	}
 	bestPath := r.chooseBestPath(solutions)
 	return append([]ResolvedStep(nil), bestPath...), nil
+}
+
+// canSatisfySizedGoal reports whether any reachable path can end at the
+// requested output format with sized=true.
+func (r *graphResolver) canSatisfySizedGoal() bool {
+	start := graphNode{format: r.sourceExt, sized: false, optimized: false}
+	search := r.findCandidatePathsWithGraph(start, r.outputExt, true, false)
+	return len(search.solutions) > 0
 }
 
 // neighborEdges returns direct transitions from one graph state.
@@ -491,37 +493,6 @@ func buildPreferenceRank(outputPref manifest.ToolPreference, defaultPref manifes
 	}
 
 	return rank
-}
-
-func requireSizedGoal(sourceExt string, outputExt string, width int, height int) bool {
-	if width <= 0 || height <= 0 {
-		return false
-	}
-	normSource := strings.ToLower(strings.TrimSpace(sourceExt))
-	normOutput := strings.ToLower(strings.TrimSpace(outputExt))
-	if normSource != "" && normSource == normOutput && isResizableFormat(normSource) {
-		return true
-	}
-	return isVectorFormat(normSource)
-}
-
-func isResizableFormat(ext string) bool {
-	switch strings.ToLower(strings.TrimSpace(ext)) {
-	case extSVG, extEPS, extPDF,
-		extPNG, extJPG, extJPEG, extWEBP, extGIF, extBMP, extTIF, extTIFF:
-		return true
-	default:
-		return false
-	}
-}
-
-func isVectorFormat(ext string) bool {
-	switch strings.ToLower(strings.TrimSpace(ext)) {
-	case extSVG, extEPS, extPDF:
-		return true
-	default:
-		return false
-	}
 }
 
 func hasExplicitToolPreference(pref manifest.ToolPreference) bool {

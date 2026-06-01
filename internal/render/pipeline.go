@@ -68,25 +68,26 @@ func FindTarget(m *manifest.Manifest, targetPath string) (*TargetSpec, error) {
 }
 
 // ResolvePipeline chooses a compatible tool chain from source to output format.
-func ResolvePipeline(m *manifest.Manifest, sourcePath string, o manifest.Output) ([]ResolvedStep, error) {
-	return ResolvePipelineWithOptions(m, sourcePath, o, ResolveOptions{CheckAvailability: true})
+func ResolvePipeline(m *manifest.Manifest, sourcePath string, output manifest.Output) ([]ResolvedStep, error) {
+	return ResolvePipelineWithOptions(m, sourcePath, output, ResolveOptions{CheckAvailability: true})
 }
 
 // ResolvePipelineWithOptions resolves a compatible pipeline with caller-provided options.
 func ResolvePipelineWithOptions(
 	m *manifest.Manifest,
 	sourcePath string,
-	o manifest.Output,
+	output manifest.Output,
 	opts ResolveOptions,
 ) ([]ResolvedStep, error) {
 	sourceExt := strings.ToLower(strings.TrimSpace(filepath.Ext(sourcePath)))
-	outputExt := strings.ToLower(strings.TrimSpace(filepath.Ext(o.Path)))
+	outputExt := strings.ToLower(strings.TrimSpace(filepath.Ext(output.Path)))
 	toolRepo := opts.ToolRepo
 	if toolRepo == nil {
 		toolRepo = NewToolRepository()
 	}
 
-	preferenceRank := buildPreferenceRank(o.Options.Tools, m.Meta.Render.Defaults.Tools)
+	preferenceRank := buildPreferenceRank(output.Options.Tools, m.Meta.Render.Defaults.Tools)
+	sizeRequested := output.Width > 0 && output.Height > 0
 
 	steps, err := resolveGraphPath(
 		m.Meta.Render.Tools,
@@ -94,8 +95,8 @@ func ResolvePipelineWithOptions(
 		preferenceRank,
 		sourceExt,
 		outputExt,
-		o.Options.ScaleMode,
-		requireSizedGoal(sourceExt, outputExt, o.Width, o.Height) && !hasExplicitToolPreference(o.Options.Tools),
+		output.Options.ScaleMode,
+		sizeRequested && !hasExplicitToolPreference(output.Options.Tools),
 		opts,
 		toolRepo,
 	)
@@ -104,7 +105,7 @@ func ResolvePipelineWithOptions(
 	}
 
 	if len(steps) == 0 {
-		return nil, fmt.Errorf("no pipeline steps resolved for target %q", o.Path)
+		return nil, fmt.Errorf("no pipeline steps resolved for target %q", output.Path)
 	}
 
 	return steps, nil
@@ -126,6 +127,7 @@ func ResolveGraphDOT(
 	}
 
 	preferenceRank := buildPreferenceRank(o.Options.Tools, m.Meta.Render.Defaults.Tools)
+	sizeRequested := o.Width > 0 && o.Height > 0
 	resolver := newGraphResolver(
 		m.Meta.Render.Tools,
 		m.Meta.Render.OptimizeByFormat,
@@ -133,7 +135,7 @@ func ResolveGraphDOT(
 		sourceExt,
 		outputExt,
 		o.Options.ScaleMode,
-		requireSizedGoal(sourceExt, outputExt, o.Width, o.Height) && !hasExplicitToolPreference(o.Options.Tools),
+		sizeRequested && !hasExplicitToolPreference(o.Options.Tools),
 		opts.CheckAvailability,
 		toolRepo,
 	)

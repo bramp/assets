@@ -19,23 +19,17 @@ func expandStepCommand(step ResolvedStep, ctx BuildContext) string {
 
 // expandTemplate replaces supported placeholders in a command template.
 func expandTemplate(s string, ctx BuildContext) string {
-	width, height := sizeStrings(ctx)
-	replacer := strings.NewReplacer(
+	return strings.NewReplacer(
 		"{input}", shellQuote(ctx.InputPath),
 		"{output}", shellQuote(ctx.OutputPath),
 		"{tmp}", shellQuote(ctx.TmpPath),
 		"{tmp2}", shellQuote(ctx.Tmp2Path),
-		"{width}", width,
-		"{height}", height,
+		"{width}", strconv.Itoa(ctx.Width),
+		"{height}", strconv.Itoa(ctx.Height),
 		"{scale_mode}", shellQuote(ctx.ScaleMode),
 		"{background}", shellQuote(ctx.Background),
 		"{scale}", "1",
-	)
-	return replacer.Replace(s)
-}
-
-func sizeStrings(ctx BuildContext) (string, string) {
-	return strconv.Itoa(ctx.Width), strconv.Itoa(ctx.Height)
+	).Replace(s)
 }
 
 func stepSizeTemplate(step ResolvedStep, scaleMode string) string {
