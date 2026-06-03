@@ -182,41 +182,6 @@ func TestRunVerifyLock_MissingOutputOnDisk(t *testing.T) {
 	}
 }
 
-func TestRunVerifyLock_ProvenanceMismatch(t *testing.T) {
-	t.Parallel()
-
-	dir := t.TempDir()
-	manifestPath := writePipelineFixture(t, dir)
-
-	var stderr bytes.Buffer
-	if exit := commands.RunBuildTarget(
-		[]string{"--manifest", manifestPath, "--target", "out/out.txt"},
-		&stderr,
-	); exit != 0 {
-		t.Fatalf("build-target failed: %s", stderr.String())
-	}
-
-	lockPath := filepath.Join(dir, "assets.lock")
-	b, err := os.ReadFile(lockPath)
-	if err != nil {
-		t.Fatalf("read lockfile: %v", err)
-	}
-	// mutate provenance command chain so verify-lock detects mismatch
-	mutated := strings.Replace(string(b), "cp {input} {output}", "cp {input} {output} #changed", 1)
-	writeLockErr := os.WriteFile(lockPath, []byte(mutated), 0o644)
-	if writeLockErr != nil {
-		t.Fatalf("write lockfile: %v", writeLockErr)
-	}
-
-	stderr.Reset()
-	if exit := commands.RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 1 {
-		t.Fatalf("expected verify-lock failure, got %d", exit)
-	}
-	if !strings.Contains(stderr.String(), "provenance mismatch") {
-		t.Fatalf("expected provenance mismatch error, got: %s", stderr.String())
-	}
-}
-
 func TestRunVerifyLock_OtherFailures(t *testing.T) {
 	t.Parallel()
 

@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strings"
 
 	"github.com/bramp/assets/internal/hash"
 	"github.com/bramp/assets/internal/lockfile"
 	"github.com/bramp/assets/internal/manifest"
-	"github.com/bramp/assets/internal/render"
 )
 
 // RunVerifyLock verifies manifest sources, generated outputs, and lockfile provenance.
@@ -90,22 +88,6 @@ func RunVerifyLock(args []string, stderr io.Writer) int {
 			if !hasSourceRef(lOut.Sources, a.Source, sourceHash, sourceSize) {
 				errs = append(errs, fmt.Sprintf("asset %q output %q source metadata mismatch", assetLabel, out.Path))
 				addTargetReason(targetReasons, out.Path, "source metadata mismatch")
-			}
-
-			steps, resolveErr := render.ResolvePipeline(m, a.Source, out)
-			if resolveErr != nil {
-				errs = append(
-					errs,
-					fmt.Sprintf("asset %q output %q pipeline resolve failed: %v", assetLabel, out.Path, resolveErr),
-				)
-				addTargetReason(targetReasons, out.Path, "pipeline resolve failed")
-				continue
-			}
-
-			currentProv := render.CollectProvenance(steps)
-			if !reflect.DeepEqual(lOut.Provenance, currentProv) {
-				errs = append(errs, fmt.Sprintf("asset %q output %q provenance mismatch", assetLabel, out.Path))
-				addTargetReason(targetReasons, out.Path, "provenance mismatch")
 			}
 
 			outPath := filepath.Join(baseDir, out.Path)

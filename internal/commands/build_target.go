@@ -69,14 +69,8 @@ func RunBuildTarget(args []string, stderr io.Writer) int {
 		Background: spec.Output.Options.Background,
 	}
 
-	onCommand := func(string) {}
-	if !*quiet {
-		onCommand = func(cmd string) {
-			_, _ = fmt.Fprintln(stderr, cmd)
-		}
-	}
-
-	if err := render.ExecutePipelineWithHook(steps, ctx, onCommand); err != nil {
+	executedCommands, err := executeBuildPipeline(steps, ctx, *quiet, stderr)
+	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "build: %v\n", err)
 		return 1
 	}
@@ -94,7 +88,7 @@ func RunBuildTarget(args []string, stderr io.Writer) int {
 	}
 
 	lockAbsPath := filepath.Join(baseDir, *lockPath)
-	provenance := render.CollectProvenanceWithRepo(steps, toolRepo)
+	provenance := render.CollectProvenance(steps, executedCommands, toolRepo)
 	if err := saveBuildResultWithRetry(
 		lockAbsPath,
 		spec.Asset.Source,
@@ -130,4 +124,25 @@ func saveBuildResultWithRetry(
 		SizeBytes:  outputSize,
 	})
 	return ls.SaveWithRetry(6, 10*time.Millisecond)
+}
+
+func executeBuildPipeline(
+	steps []render.ResolvedStep,
+	ctx render.BuildContext,
+	quiet bool,
+	stderr io.Writer,
+) ([]string, error) {
+	executedCommands := make([]string, 0, len(steps))
+	onCommand := func(cmd string) {
+		executedCommands = append(executedCommands, cmd)
+		if !quiet {
+			_, _ = fmt.Fprintln(stderr, cmd)
+		}
+	}
+
+	if err := render.ExecutePipelineWithHook(steps, ctx, onCommand); err != nil {
+		return nil, err
+	}
+
+	return executedCommands, nil
 }

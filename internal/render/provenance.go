@@ -9,15 +9,18 @@ import (
 	"github.com/bramp/assets/internal/lockfile"
 )
 
-// CollectProvenance records command chain and tool fingerprints for resolved steps.
-func CollectProvenance(steps []ResolvedStep) *lockfile.Provenance {
-	return CollectProvenanceWithRepo(steps, NewToolRepository())
+// CollectProvenance records tool fingerprints using the exact command chain
+// captured during pipeline execution.
+func CollectProvenance(
+	steps []ResolvedStep,
+	commandChain []string,
+	toolRepo ToolRepository,
+) *lockfile.Provenance {
+	return collectProvenance(steps, commandChain, toolRepo)
 }
 
-// CollectProvenanceWithRepo records command chain and tool fingerprints for
-// resolved steps using the supplied tool repository.
-func CollectProvenanceWithRepo(steps []ResolvedStep, toolRepo ToolRepository) *lockfile.Provenance {
-	chain := make([]string, 0, len(steps))
+func collectProvenance(steps []ResolvedStep, commandChain []string, toolRepo ToolRepository) *lockfile.Provenance {
+	chain := append([]string(nil), commandChain...)
 	tools := map[string]string{}
 	if toolRepo == nil {
 		toolRepo = NewToolRepository()
@@ -29,7 +32,6 @@ func CollectProvenanceWithRepo(steps []ResolvedStep, toolRepo ToolRepository) *l
 
 	seen := map[string]bool{}
 	for _, s := range steps {
-		chain = append(chain, s.Command)
 		if s.Tool == "" || seen[s.Tool] {
 			continue
 		}
@@ -38,9 +40,6 @@ func CollectProvenanceWithRepo(steps []ResolvedStep, toolRepo ToolRepository) *l
 			tools[s.Tool] = v
 		}
 	}
-
-	// Keep command chain deterministic for hashing/storage comparisons.
-	chainCopy := append([]string(nil), chain...)
 
 	// Keep map output stable by ensuring deterministic insertion order for likely readers.
 	if len(tools) > 0 {
@@ -56,5 +55,5 @@ func CollectProvenanceWithRepo(steps []ResolvedStep, toolRepo ToolRepository) *l
 		tools = stable
 	}
 
-	return &lockfile.Provenance{CommandChain: chainCopy, Tools: tools}
+	return &lockfile.Provenance{CommandChain: chain, Tools: tools}
 }
