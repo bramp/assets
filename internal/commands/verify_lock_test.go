@@ -10,6 +10,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/bramp/assets/internal/commands"
+	"github.com/bramp/assets/internal/hash"
+	"github.com/bramp/assets/internal/lockfile"
 )
 
 func TestRunVerifyLock_Success(t *testing.T) {
@@ -224,6 +226,89 @@ func TestRunVerifyLock_OtherFailures(t *testing.T) {
 			t.Fatalf("expected missing output message, got: %s", stderr.String())
 		}
 	})
+}
+
+func TestRunVerifyLock_DoesNotRequireInstalledRenderTools(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	sourceRel := "artwork/logo.assetsrc"
+	sourcePath := filepath.Join(dir, sourceRel)
+	if err := os.MkdirAll(filepath.Dir(sourcePath), 0o755); err != nil {
+		t.Fatalf("mkdir source: %v", err)
+	}
+	if err := os.WriteFile(sourcePath, []byte("source-bytes\n"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	outputRel := "apps/brick_timer/assets/app_icon.assetout"
+	outputPath := filepath.Join(dir, outputRel)
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+		t.Fatalf("mkdir output: %v", err)
+	}
+	if err := os.WriteFile(outputPath, []byte("output-bytes\n"), 0o644); err != nil {
+		t.Fatalf("write output: %v", err)
+	}
+
+	manifest := "meta:\n" +
+		"  project: \"test\"\n" +
+		"  render:\n" +
+		"    defaults:\n" +
+		"      tools: [\"missing_svg_to_png\"]\n" +
+		"    tools:\n" +
+		"      missing_svg_to_png:\n" +
+		"        tool: \"missing-svg-converter\"\n" +
+		"        command: \"missing-svg-converter {input} {output}\"\n" +
+		"        accepts: [\".assetsrc\"]\n" +
+		"        produces: [\".assetout\"]\n" +
+		"assets:\n" +
+		"  - source: \"artwork/logo.assetsrc\"\n" +
+		"    outputs:\n" +
+		"      - path: \"apps/brick_timer/assets/app_icon.assetout\"\n" +
+		"        width: 256\n" +
+		"        height: 256\n" +
+		"        options:\n" +
+		"          scale_mode: \"fit\"\n" +
+		"          background: \"transparent\"\n"
+	manifestPath := filepath.Join(dir, "assets.yaml")
+	if err := os.WriteFile(manifestPath, []byte(manifest), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	sourceHash, sourceSize, err := hash.FileSHA256AndSize(sourcePath)
+	if err != nil {
+		t.Fatalf("hash source: %v", err)
+	}
+	outputHash, outputSize, err := hash.FileSHA256AndSize(outputPath)
+	if err != nil {
+		t.Fatalf("hash output: %v", err)
+	}
+
+	ls, err := lockfile.Open(filepath.Join(dir, "assets.lock"))
+	if err != nil {
+		t.Fatalf("open lockfile: %v", err)
+	}
+	defer func() { _ = ls.Close() }()
+
+	ls.UpsertOutput(outputRel, lockfile.GeneratedRef{
+		Sources: map[string]lockfile.SourceRef{
+			sourceRel: {
+				SHA256:    sourceHash,
+				SizeBytes: sourceSize,
+			},
+		},
+		SHA256:    outputHash,
+		SizeBytes: outputSize,
+	})
+	if err := ls.Save(); err != nil {
+		t.Fatalf("save lockfile: %v", err)
+	}
+
+	var stderr bytes.Buffer
+	if exit := commands.RunVerifyLock([]string{"--manifest", manifestPath}, &stderr); exit != 0 {
+		t.Fatalf("expected verify-lock success without installed tools, got %d: %s", exit, stderr.String())
+	}
 }
 
 func writePipelineFixture(t *testing.T, dir string) string {
