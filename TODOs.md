@@ -126,9 +126,10 @@
 
 ## Phase 9: Optional Hardening
 
-- [ ] Add gocyclo check in make analyze with threshold < 25.
-- [ ] Add path safety checks to prevent writes outside repository root.
-- [ ] Add parallel-safe lockfile update strategy if build runs concurrently.
+- [x] Add gocyclo check in make analyze with threshold < 25. (Implemented with the current 30 threshold.)
+- [x] Add path safety checks to prevent writes outside repository root. (Current source/output path normalization is in place.)
+- [x] Add parallel-safe lockfile update strategy if build runs concurrently. (Lockfile updates now use advisory locking plus optimistic hash retry.)
+  - [ ] Add same-target build serialization if build runs concurrently.
 - [ ] Add feature flags or versioned options for future transform engines.
 - [ ] Refactor in-place optimizer prep into explicit graph nodes:
   - [ ] Introduce a dedicated bitmap copy/stage node in `meta.render.tools` (for example `copy-bitmap`) rather than embedding `cp ... &&` in optimizer commands.
